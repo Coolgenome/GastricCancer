@@ -1,0 +1,245 @@
+#Object
+##############################################################################################################################################################################
+Original.OView03<- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_OverView03.RDS");
+CD4THluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_CD4THluster01.RDS");
+CD8THluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_CD8THluster01.RDS");
+NHluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_NKHluster03.RDS"); 
+BHluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_IntBHluster04_RMIG.RDS");
+MHluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_MyeloidHluster01.RDS");
+StrHluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_StrHluster01.RDS");
+##############################################################################################################################################################################
+
+#Fig 1b
+##############################################################################################################################################################################
+Original.OView03<- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_OverView03.RDS");
+CellOrder <- c("T&NK","Myeloid","B","Plasma","Mast","Proliferating","Stomach","Intestine","Liver","PLT","RBC","Endo","CAF","Malignant");
+CellColor <- c("#fb8072","#fdb462","#66c2a5","#a6d854","#fd8d3c","#8dd3c7","#bebada","#b3cde3","#8da0cb","#e5d8bd","#fed9a6","#decbe4","#e78ac3","#737373");
+Idents(Original.OView03) <- "CellDetails"; Idents(Original.OView03) <- factor(Idents(Original.OView03), levels=CellOrder);
+Plot01 <- DimPlot(object=Original.OView03, cols=rev(CellColor), order=CellOrder, reduction="umap", pt.size=1, label=T, label.size=6, raster=FALSE) + xlim(-21,20) + ylim(-15,17.5) + theme_void() +
+            theme(axis.title.x = element_blank(), axis.title.y = element_blank(), axis.text.x = element_blank(), axis.text.y = element_blank(), legend.position="right");
+tiff("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Lineage_01.tif", res=300, width=5000, height=5000)
+Combine <- plot_grid(Plot01,nrow=1,ncol=1); print(Combine);
+dev.off()
+##############################################################################################################################################################################
+#Fig 1c
+##############################################################################################################################################################################
+KI67.Objt <- subset(Original.OView03, subset = MKI67 > 0); CellOrder <- c("T&NK","Myeloid","B","Plasma","Mast","Proliferating","Stomach","Intestine","Liver","PLT","RBC","Endo","CAF","Malignant");
+CellColor <- c("#fb8072","#fdb462","#66c2a5","#a6d854","#fd8d3c","#8dd3c7","#bebada","#b3cde3","#8da0cb","#e5d8bd","#fed9a6","#decbe4","#e78ac3","#737373"); Original.OView03 <- AddInfo(Original.OView03);
+CellList <- list(); ColorList <- list(); CellList[[1 ]] <- rownames(Original.OView03[[]])[which(Original.OView03[[]]$Tissue=="PB"|Original.OView03[[]]$Tissue=="PBMC")];
+CellList[[2 ]] <- rownames(Original.OView03[[]])[which(Original.OView03[[]]$Tissue=="Ad")]; CellList[[3 ]] <- rownames(Original.OView03[[]])[which(Original.OView03[[]]$Tissue=="P")]; CellList[[4 ]] <- rownames(Original.OView03[[]])[which(Original.OView03[[]]$Tissue=="As")]; 
+CellList[[5 ]] <- rownames(Original.OView03[[]])[which(Original.OView03[[]]$Tissue=="Li")]; CellList[[6 ]] <- rownames(Original.OView03[[]])[which(Original.OView03[[]]$HPinfec=="Positive")];
+CellList[[7 ]] <- rownames(KI67.Objt[[]]); CellList[[8 ]] <- rownames(Original.OView03[[]])[which(Original.OView03[[]]$Lauren=="Intestinal")]; CellList[[9 ]] <- rownames(Original.OView03[[]])[which(Original.OView03[[]]$Lauren=="Diffused")]; 
+CellList[[10]] <- rownames(Original.OView03[[]])[which(Original.OView03[[]]$Differn=="Poorly")];  CellList[[11]] <- rownames(Original.OView03[[]])[which(Original.OView03[[]]$Differn=="Moderately")]; 
+CellList[[12]] <- rownames(Original.OView03[[]])[which(Original.OView03[[]]$HPinfec=="Negative")]; names(CellList) <- c("Blood","Ad","Pr","As","Li","HPpositive","MKI67","Intestinal","Diffused","Poorly","Moderately","HPnegative")
+for(i in 1:length(CellList)) { Objt <- subset(Original.OView03, cells=CellList[[i]]); CellDetails <- as.character(unique(Objt[[]]$CellDetails)); ColorList[[i]] <- CellColor[which(is.na(match(CellOrder,CellDetails))==F)]; }
+
+Idents(Original.OView03) <- "CellDetails"; Idents(Original.OView03) <- factor(Idents(Original.OView03), levels=CellOrder);
+Single01 <- DimPlot(object=Original.OView03, cols=ColorList[[1 ]], reduction="umap", pt.size=1, label=F, label.size=6, raster=FALSE, cells=CellList[[1 ]]) + xlim(-21,20) + ylim(-15,17.5) + theme_void() +
+              theme(axis.title.x = element_blank(), axis.title.y = element_blank(), axis.text.x = element_blank(), axis.text.y = element_blank(), legend.position="none");
+Single02 <- DimPlot(object=Original.OView03, cols=ColorList[[2 ]], reduction="umap", pt.size=1, label=F, label.size=6, raster=FALSE, cells=CellList[[2 ]]) + xlim(-21,20) + ylim(-15,17.5) + theme_void() +
+              theme(axis.title.x = element_blank(), axis.title.y = element_blank(), axis.text.x = element_blank(), axis.text.y = element_blank(), legend.position="none");
+Single03 <- DimPlot(object=Original.OView03, cols=ColorList[[3 ]], reduction="umap", pt.size=1, label=F, label.size=6, raster=FALSE, cells=CellList[[3 ]]) + xlim(-21,20) + ylim(-15,17.5) + theme_void() +
+              theme(axis.title.x = element_blank(), axis.title.y = element_blank(), axis.text.x = element_blank(), axis.text.y = element_blank(), legend.position="none");
+Single04 <- DimPlot(object=Original.OView03, cols=ColorList[[4 ]], reduction="umap", pt.size=1, label=F, label.size=6, raster=FALSE, cells=CellList[[4 ]]) + xlim(-21,20) + ylim(-15,17.5) + theme_void() +
+              theme(axis.title.x = element_blank(), axis.title.y = element_blank(), axis.text.x = element_blank(), axis.text.y = element_blank(), legend.position="none");
+Single05 <- DimPlot(object=Original.OView03, cols=ColorList[[5 ]], reduction="umap", pt.size=1, label=F, label.size=6, raster=FALSE, cells=CellList[[5 ]]) + xlim(-21,20) + ylim(-15,17.5) + theme_void() +
+              theme(axis.title.x = element_blank(), axis.title.y = element_blank(), axis.text.x = element_blank(), axis.text.y = element_blank(), legend.position="none");
+Single06 <- DimPlot(object=Original.OView03, cols=ColorList[[7 ]], reduction="umap", pt.size=1, label=F, label.size=6, raster=FALSE, cells=CellList[[7 ]]) + xlim(-21,20) + ylim(-15,17.5) + theme_void() +
+              theme(axis.title.x = element_blank(), axis.title.y = element_blank(), axis.text.x = element_blank(), axis.text.y = element_blank(), legend.position="none");
+
+tiff("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Original_01.tif", res=300, width=30000, height=5000)
+Combine <- plot_grid(Single01,Single02,Single03,Single04,Single05,Single06,nrow=1,ncol=6); print(Combine);
+dev.off()
+##############################################################################################################################################################################
+#Fig 1d
+##############################################################################################################################################################################
+#CD4 T Cells
+Idents(CD4THluster) <- "seurat_clusters"; Color1 <- c("#8dd3c7","#fb8072","#80b1d3","#fdb462","#bebada","#fccde5");
+tiff("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Original_01.tif", res=300, width=5000, height=5000)
+Single01 <- DimPlot(object=CD4THluster, cols=Color1, reduction="umap", pt.size=1, label=F, label.size=8, raster=FALSE) + theme_void() +
+              theme(axis.title.x = element_blank(), axis.title.y = element_blank(), axis.text.x = element_blank(), axis.text.y = element_blank(), legend.position="none");
+Combine <- plot_grid(Single01,nrow=1,ncol=1); print(Combine);
+dev.off()
+
+#CD8 T Cells
+Idents(CD8THluster) <- "seurat_clusters"; Color2 <- c("#66c2a5","#fc8d62","#8da0cb","#e78ac3","#a6d854","#ffd92f","#e5c494");
+tiff("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Original_01.tif", res=300, width=5000, height=5000)
+Single01 <- DimPlot(object=CD8THluster, cols=Color2, reduction="umap", pt.size=1, label=F, label.size=8, raster=FALSE) + theme_void() +
+              theme(axis.title.x = element_blank(), axis.title.y = element_blank(), axis.text.x = element_blank(), axis.text.y = element_blank(), legend.position="none");
+Combine <- plot_grid(Single01,nrow=1,ncol=1); print(Combine);
+dev.off()
+
+#B/Plasma Cells
+Idents(BHluster) <- "seurat_clusters"; Color3 <- c("#7fc97f","#beaed4","#e6ab02","#fdc086","#4393c3","#f0027f","#bf5b17");
+tiff("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Original_01.tif", res=300, width=5000, height=5000)
+Single01 <- DimPlot(object=BHluster, cols=Color3, reduction="umap", pt.size=1, label=F, label.size=8, raster=FALSE) + theme_void() +
+              theme(axis.title.x = element_blank(), axis.title.y = element_blank(), axis.text.x = element_blank(), axis.text.y = element_blank(), legend.position="none");
+Combine <- plot_grid(Single01,nrow=1,ncol=1); print(Combine);
+dev.off()
+
+#NK Cells
+Idents(NHluster) <- "seurat_clusters"; Color4 <- c("#3B4992CC","#EE0000CC","#008B45CC","#631879CC","#BB0021CC","#808180CC");
+tiff("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Original_01.tif", res=300, width=5000, height=5000)
+Single01 <- DimPlot(object=NHluster, cols=Color4, reduction="umap", pt.size=1.3, label=F, label.size=8, raster=FALSE) + theme_void() +
+              theme(axis.title.x = element_blank(), axis.title.y = element_blank(), axis.text.x = element_blank(), axis.text.y = element_blank(), legend.position="none");
+Combine <- plot_grid(Single01,nrow=1,ncol=1); print(Combine);
+dev.off()
+
+#Myeloid Cells
+Cluster <- c("C1QC-Macrophage1","ATF3-Macrophage","INHBA-Macrophage","C1QC-Macrophages2","CXCL10-Macrophage","CCL2-Macrophage","CD14-Monocyte","CSF3R-Monocyte","CD16-Monocyte","CD1C-cDC","pDC","Mast Cell","Proliferating");
+Color5 <- c("#a6cee3","#cab2d6","#fb9a99","#74add1","#fdbf6f","#e6f598","#b2df8a","#35978f","#33a02c","#ff7f00","#c51b7d","#8073ac","#b15928");
+Idents(MHluster) <- "CellCluster"; Idents(MHluster) <- factor(Idents(MHluster),levels=Cluster)
+tiff("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Original_01.tif", res=300, width=5000, height=5000)
+Single01 <- DimPlot(object=MHluster, cols=Color5, reduction="umap", pt.size=1, label=F, label.size=8, raster=FALSE) + theme_void() +
+              theme(axis.title.x = element_blank(), axis.title.y = element_blank(), axis.text.x = element_blank(), axis.text.y = element_blank(), legend.position="none");
+Combine <- plot_grid(Single01,nrow=1,ncol=1); print(Combine);
+dev.off()
+
+#Stromal
+MetaData <- Original.OView03[[]]$CellClus; names(MetaData) <- rownames(Original.OView03[[]]); MetaData <- MetaData[match(rownames(StrHluster[[]]),names(MetaData))];
+StrHluster <- AddMetaData(StrHluster,MetaData,col.name="CellClus"); Idents(StrHluster) <- "CellClus"; 
+Idents(StrHluster) <- factor(Idents(StrHluster), levels=c("CAF_C01","CAF_C02","CAF_C03","CAF_C04","CAF_C05","ProlifCAF_All","Pericyte_C01","Endo_C01","Endo_C02","ProlifEndo_All"));
+Color6 <- c("#a6cee3","#1f78b4","#b2df8a","#33a02c","#fb9a99","#e31a1c","#fdbf6f","#ff7f00","#cab2d6","#6a3d9a");
+pdf("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Original_01.pdf", width=15, height=15, useDingbats=FALSE)
+Single01 <- DimPlot(object=StrHluster, cols=Color6, reduction="umap", pt.size=2, label=F, label.size=8, raster=FALSE) + ylim(-8,8) + theme_void() +
+              theme(axis.title.x = element_blank(), axis.title.y = element_blank(), axis.text.x = element_blank(), axis.text.y = element_blank(), legend.position="right"); Combine <- plot_grid(Single01,nrow=1,ncol=1); print(Combine);
+dev.off()
+##############################################################################################################################################################################
+#Fig 1e
+##############################################################################################################################################################################
+Tclus <- c("CD4T_C01","CD4T_C02","CD4T_C03","CD4T_C04","CD4T_C05","CD4T_C06","CD8T_C01","CD8T_C02","CD8T_C03","CD8T_C04","CD8T_C05","CD8T_C06","CD8T_C07","NKT_All","MAIT_All","gdT_All")
+Nclus <- c("NK_C01","NK_C02","NK_C03","NK_C04","NK_C05","NK_C06"); Bclus <- c("B_C01","Plasma_C01","B_C02","Plasma_C02","B_C03","Plasma_C03","B_C04");
+Mclus <- c("Mono_C01","Macro_C01","Mono_C02","Macro_C02","Mono_C03","Macro_C03","cDC_All","Macro_C04","Mast_All","Macro_C05","Macro_C06","pDC_All");
+Sclus <- c("CAF_C01","CAF_C02","CAF_C03","CAF_C04","CAF_C05","Pericyte_C01","Endo_C01","Endo_C02"); Pclus <- c("ProlifT_All","ProlifM_All","ProlifCAF_All","ProlifEndo_All");
+SelectClus <- c(Tclus,Nclus,Bclus,Mclus,Sclus,Pclus); Color <- c("#66c2a5","#a6d854","#e78ac3","#fc8d62","#8da0cb","#ffd92f");
+
+Idents(Original.OView03) <- "CellCluster"; TMEHluster <- subset(Original.OView03, idents=c(Tclus,Nclus,Bclus,Mclus,Sclus,Pclus));
+TMEHluster <- NormalizeData(TMEHluster, normalization.method = "LogNormalize", scale.factor = 10000); TMEHluster <- FindVariableFeatures(TMEHluster, selection.method = "vst", nfeatures = 2000);
+TMEHluster <- RunPCA(TMEHluster, features = VariableFeatures(object = TMEHluster), npcs = 100, verbose = FALSE);
+
+Idents(TMEHluster) <- "CellCluster"; PCA <- Embeddings(TMEHluster, reduction = "pca"); TME.PCA <- matrix(0,nrow=length(SelectClus),ncol=100); rownames(TME.PCA) <- SelectClus; colnames(TME.PCA) <- colnames(PCA);
+for(i in 1:length(SelectClus)) { SelectCell <- WhichCells(TMEHluster, idents=SelectClus[i]); SelectMatrix <- PCA[match(SelectCell,rownames(PCA)),]; for(j in 1:ncol(SelectMatrix)) { TME.PCA[i,j] <- mean(SelectMatrix[,j]); } }
+SelectClus <- setdiff(SelectClus,"CAF_C03"); Dist.PCA <- dist(TME.PCA[match(SelectClus,rownames(TME.PCA)),c(1:30)], method = "euclidean"); 
+HClus.PCA <- hclust(Dist.PCA, method = "ward.D"); Cluster <- integer(length(as.phylo(HClus.PCA)$tip.label)); names(Cluster) <- as.phylo(HClus.PCA)$tip.label
+Cluster[which(is.na(match(names(Cluster),Tclus))==F)] <- 1; Cluster[which(is.na(match(names(Cluster),Nclus))==F)] <- 2; Cluster[which(is.na(match(names(Cluster),Bclus))==F)] <- 3;
+Cluster[which(is.na(match(names(Cluster),Mclus))==F)] <- 4; Cluster[which(is.na(match(names(Cluster),Sclus))==F)] <- 5; Cluster[which(is.na(match(names(Cluster),Pclus))==F)] <- 6;
+
+pdf("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Feature_01.pdf", width=8, height=8)
+fviz_dend(HClus.PCA, show_labels = TRUE, cex = 0.8, lwd = 1.0, k = 4, rect = TRUE, k_colors = "npg", rect_border = "npg", rect_fill = TRUE, horiz = TRUE, type = "phylogenic");
+dev.off()
+##############################################################################################################################################################################
+#Fig 1f
+##############################################################################################################################################################################
+#Top
+SelectClus <- c("B_C04","CD4T_C04","B_C01","Plasma_C02","CAF_C01","Plasma_C03","CD8T_C04","CAF_C03","Plasma_C01","Mast_All","Macro_C03","Endo_C01","Pericyte_C01","CD8T_C06","ProlifT_All","CAF_C02","Macro_C02",
+                "NK_C04","CD8T_C01","NK_C02","NKT_All","pDC_All","Macro_C01","Macro_C06","ProlifM_All","B_C03","cDC_All","CD4T_C05","CD4T_C06","CD8T_C05","CD8T_C03","gdT_All","CD4T_C02","NK_C01","NK_C03",
+                "Mono_C01","Mono_C03","CD8T_C02","Mono_C02","NK_C06","Macro_C05","B_C02","NK_C05","CD4T_C03","CD8T_C07","Macro_C04","MAIT_All","CD4T_C01"); Tissue <- c("Adjacent","Primary","Liver","Ascites","Blood");
+Original.OView03 <- TissueOrgin(Original.OView03); TissueCount <- TissueCount_02(Original.OView03, Tissue, SelectClus);PlotData <- as.data.frame(t(TissueCount)); PlotData$Category <- rownames(PlotData);
+PlotData <- melt(PlotData,id.vars='Category'); PlotData$Category <- factor(PlotData$Category, levels=rev(Tissue)); PlotData$value <- as.numeric(PlotData$value);
+PlotData$variable <- factor(PlotData$variable, levels=SelectClus);
+
+pdf("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Feature_01.pdf", width=10, height=1.5)
+Plot01 <- StackBarPlot(PlotData, rev(c("#fdb462","#80b1d3","#fb8072","#bebada","#ffffb3")), "none"); Combine <- plot_grid(Plot01,nrow=1,ncol=1); print(Combine);
+dev.off()
+
+#Middle
+SelectClus <- c("B_C04","CD4T_C04","B_C01","Plasma_C02","CAF_C01","Plasma_C03","CD8T_C04","CAF_C03","Plasma_C01","Mast_All","Macro_C03","Endo_C01","Pericyte_C01","CD8T_C06","ProlifT_All","CAF_C02","Macro_C02",
+                "NK_C04","CD8T_C01","NK_C02","NKT_All","pDC_All","Macro_C01","Macro_C06","ProlifM_All","B_C03","cDC_All","CD4T_C05","CD4T_C06","CD8T_C05","CD8T_C03","gdT_All","CD4T_C02","NK_C01","NK_C03",
+                "Mono_C01","Mono_C03","CD8T_C02","Mono_C02","NK_C06","Macro_C05","B_C02","NK_C05","CD4T_C03","CD8T_C07","Macro_C04","MAIT_All","CD4T_C01");
+SelectFeature <- c("TIGIT","PDCD1","CTLA4","CD96","LAG3","IL6ST","CCL2","SDC2","VEGFA","NECTIN2","CD276","ENTPD1","CD59","LAIR1","SIRPA","IL10","HAVCR2","IL18");
+Idents(Original.OView03) <- "CellCluster"; SelectObjt <- subset(Original.OView03, idents=SelectClus); Idents(SelectObjt) <- "CellCluster"; PlotObjt <- DotPlot(object = SelectObjt, features = SelectFeature); 
+PlotData <- PlotObjt$data; PlotData$id <- factor(PlotData$id, levels=SelectClus); PlotData$features.plot <- factor(PlotData$features.plot, levels=rev(SelectFeature));
+
+Plot01 <- ggplot(PlotData, aes(x = features.plot,y = id)) + geom_point(aes(fill = avg.exp.scaled,size =pct.exp),color='white',shape=21) +
+  scale_fill_gradientn(colours=c('#f7fcfd','#f7fcfd','#e0ecf4','#bfd3e6','#9ebcda','#8c96c6','#8c6bb1','#88419d','#810f7c','#4d004b')) +
+  scale_size(range = c(0,10), limits = c(0,100), breaks = c(0,20,40,60,80,100)) + coord_flip() +
+  theme(panel.grid.major = element_line(colour = "grey90",size=0.2), panel.grid.minor = element_blank(), axis.title.x=element_blank(), axis.title.y=element_blank(),
+        panel.background = element_blank(), axis.line = element_line(colour = "black"), axis.text.x=element_text(angle = 45,vjust = 1,hjust = 1),legend.position="right");
+pdf("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Feature_01.pdf", width=20, height=5)
+Combine <- plot_grid(Plot01,nrow=1,ncol=1); print(Combine);
+dev.off()
+
+#Bottom
+TissueDistribution = function(Object,Clus.Label,Cluster,Tiss.Label,Tissue)
+{
+  Clus.Index <- which(colnames(Object[[]])==Clus.Label); Tiss.Index <- which(colnames(Object[[]])==Tiss.Label); CTMatrix <- matrix(0,nrow=length(Cluster),ncol=length(Tissue));
+  for(i in 1:length(Cluster)) { for(j in 1:length(Tissue)) { CTMatrix[i,j] <- length(which(Object[[]][,Clus.Index]==Cluster[i]&Object[[]][,Tiss.Index]==Tissue[j])) } }
+  ChiSquare.Input <- as.table(CTMatrix); dimnames(ChiSquare.Input) <- list(cluster=paste0("",Cluster,sep=""), tissue=Tissue); ChiSquare.Output <- chisq.test(ChiSquare.Input);
+  Roe.Table <- ChiSquare.Output$observed/ChiSquare.Output$expected; Roe.Matrix <- matrix(0,nrow=length(Cluster),ncol=length(Tissue)); rownames(Roe.Matrix) <- rownames(Roe.Table); colnames(Roe.Matrix) <- colnames(Roe.Table);
+  for(i in 1:nrow(Roe.Table)) { for(j in 1:ncol(Roe.Table)) { Roe.Matrix[i,j] <- Roe.Table[i,j]; } }; return(Roe.Matrix);
+}
+Cluster <- as.character(unique(Original.OView03[[]]$CellCategory)); Tissue <- c("Blood","Adjacent","Primary","Ascites","Liver"); ROE.Category <-TissueDistribution(Original.OView03,"CellCategory",Cluster,"TissueClass",Tissue);
+OrderClus <- c("Thrombocyte","Erythrocyte","Monocyte","NK","CD4T","gdT","B","ProlifB","Stomach","Plasma","Intestine","Fibroblast","ProlifEpi","Mast","Endothelium","Malignant",
+               "ProlifM","Macrophage","DC","MAIT","CD8T","NKT","ProlifT","Liver");ROE.Category<-ROE.Category[match(OrderClus,rownames(ROE.Category)),];
+
+pdf("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Lineage_01.pdf", width=5, height=8)
+pheatmap(ROE.Category, scale="row", cluster_rows=F, cluster_col=F, show_colnames=T, show_rownames=T, legend=T);
+dev.off()
+##############################################################################################################################################################################
+#Fig 1g
+##############################################################################################################################################################################
+PaperBox = function(DataFrame, Color, Method, Title)
+{
+  Plot <- ggplot(DataFrame, aes(Class, Value)) + geom_boxplot(aes(color=Class), notch=FALSE, outlier.shape=NA, width=0.5) + geom_jitter(aes(colour = Class), size = 1.5, alpha=0.8, width=0.3) +
+    scale_fill_manual(values=Color) + theme_classic() + stat_compare_means(method = Method) + ggtitle(Title) + # + labs(x=Axis[1], y=Axis[2])
+    theme(axis.text = element_text(size=10,face="plain"), axis.text.x = element_text(angle=45, hjust=1), axis.text.y = element_blank(), #axis.title=element_text(size=14,face="plain",color="black"), 
+          plot.title = element_text(hjust = 0.5, size=8, face="plain"), axis.title = element_blank(), legend.position="none")
+  return(Plot);
+}
+MultiBox = function(DataFrame, GroupColor, NodeColor, LineColor, Title, Method)
+{
+  Plot <- ggplot(DataFrame, aes(TissueType, Value)) + geom_boxplot(aes(color=TissueType), color=GroupColor, notch=FALSE, outlier.shape=NA, width=0.5) + geom_point(aes(colour = TissueLabl), color=NodeColor, size = 1.5, alpha=0.8, width=0.3) +
+    theme_classic() + stat_compare_means(method = Method) + geom_line(aes(group=Patient, colour="#d9d9d9"), color="#d9d9d9", linetype="11") + ggtitle(Title) + # + labs(x=Axis[1], y=Axis[2])
+    theme(axis.text = element_text(size=10,face="plain"), axis.text.y = element_blank(), #axis.title=element_text(size=14,face="plain",color="black"), axis.text.x = element_text(angle=45, hjust=1),
+          plot.title = element_text(hjust = 0.5, size=8, face="plain"), axis.title = element_blank(), legend.position="none")
+  return(Plot);
+}
+
+#Top
+Sample <- setdiff(unique(Original.OView03[[]]$orig.ident),c("Pt05_Ov","Pt11_Ov")); Tissue <- c("Blood","Adjacent","Primary","Ascites","Liver"); Color <- c("#ffffb3","#8dd3c7","#fb8072","#bebada"); 
+SelectCluster <- c("CD4T_C01","CD4T_C02","CD4T_C03","CD4T_C04","CD4T_C05","CD4T_C06","CD8T_C01","CD8T_C02","CD8T_C03","CD8T_C04","CD8T_C05","CD8T_C06","CD8T_C07","NKT_All","MAIT_All","gdT_All","ProlifT_All",
+                   "NK_C01","NK_C02","NK_C03","NK_C04","NK_C05","NK_C06","B_C01","Plasma_C01","B_C02","Plasma_C02","B_C03","Plasma_C03","B_C04","Mono_C01","Macro_C01","Mono_C02","Macro_C02","Mono_C03","Macro_C03",
+                   "cDC_All","Macro_C04","Mast_All","Macro_C05","Macro_C06","pDC_All","ProlifM_All","CAF_C01","Pericyte_C01","CAF_C02","CAF_C03","Endo_C01");
+SampleFract <- SampleFract_02(Original.OView03,Sample,SelectCluster); SampleFraction <- cbind(SampleFract,Annotation);
+SolidFraction <- SampleFraction[setdiff(c(1:nrow(SampleFraction)),which(SampleFraction$Tissue=="Blood")),]; Tissue <- c("Adjacent","Primary","Liver","Ascites");
+PlotList <- list(); Pvalue <- numeric(); for(i in 1:48)
+{
+  PlotData <- data.frame(Class=SolidFraction$Tissue,Value=SolidFraction[,i]); PlotData$Class <- factor(PlotData$Class, levels=Tissue);
+  Title <- SelectCluster[i]; PlotList[[i]] <- PaperBox(PlotData, Color, "kruskal.test", Title);
+  KW.Res <- kruskal.test(Value ~ Class, data = PlotData); Pvalue <- c(Pvalue,KW.Res[3]$p.value);
+}; names(Pvalue) <- SelectCluster; FDR <- p.adjust(Pvalue, method = "fdr", n = length(Pvalue));
+SampleCellFraction[[1]] <- SolidFraction; SampleCellPQvalue[[1]] <- rbind(Pvalue,FDR);
+
+pdf("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Feature_01.pdf", width=5, height=3, useDingbats=FALSE)
+Combine <- plot_grid(PlotList[[27]],PlotList[[48]],PlotList[[12]],PlotList[[32]],nrow=1,ncol=3); print(Combine);
+dev.off()
+
+#Bottom
+Sample <- setdiff(unique(Original.OView03[[]]$orig.ident),c("Pt05_Ov","Pt11_Ov")); Tissue <- c("Blood","Adjacent","Primary","Ascites","Liver"); Color <- c("#fdb462","#80b1d3","#fb8072","#bebada","#ffffb3"); 
+SelectCluster <- c("CD4T_C01","CD4T_C02","CD4T_C03","CD4T_C04","CD4T_C05","CD4T_C06","CD8T_C01","CD8T_C02","CD8T_C03","CD8T_C04","CD8T_C05","CD8T_C06","CD8T_C07","NKT_All","MAIT_All","gdT_All","ProlifT_All",
+                   "NK_C01","NK_C02","NK_C03","NK_C04","NK_C05","NK_C06","B_C01","Plasma_C01","B_C02","Plasma_C02","B_C03","Plasma_C03","B_C04","Mono_C01","Macro_C01","Mono_C02","Macro_C02","Mono_C03","Macro_C03",
+                   "cDC_All","Macro_C04","Mast_All","Macro_C05","Macro_C06","pDC_All","ProlifM_All","CAF_C01","Pericyte_C01","CAF_C02","CAF_C03","Endo_C01"); #
+SampleFract <- SampleFract_02(Original.OView03,Sample,SelectCluster); SampleFraction <- cbind(SampleFract,Annotation); PlotList <- list(); Color <- c("#fdb462","#80b1d3","#fb8072","#bebada","#ffffb3");
+SelectPatient <- c("Pt05","Pt13","Pt19","Pt21","Pt22","Pt23","Pt10","Pt14","Pt18","Pt20"); SelectSample <- data.frame(); for(i in 1:length(SelectPatient))
+{ Sample=rownames(SampleFraction)[grep(SelectPatient[i],rownames(SampleFraction))]; SelectSample <- rbind(SelectSample,data.frame(Patient=rep(SelectPatient[i],length(Sample)),Sample=Sample)); };
+SelectSample <- SelectSample[-which(SelectSample$Sample=="Pt10_PB"),]; SelectSampleFraction <- cbind(SampleFraction[match(SelectSample$Sample,rownames(SampleFraction)),],SelectSample);
+TissueType <- SelectSampleFraction$Tissue; TissueType[which(TissueType=="Ascites"|TissueType=="Liver")] <- "Metastasis"; SelectSampleFraction$TissueType <- TissueType; 
+SampleType <- c("Ad","As","Pr","Bd","Ad","As","Pr","Bd","Ad","As","Pr","Bd","Ad","As","Pr","Bd","Ad","As","Pr","Bd","Ad","As","Pr","Bd","Ad","Li","Pr","Bd","Ad","Li","Pr","Bd","Ad","Li","Pr","Bd","Ad","Li","Pr","Bd");
+BackColor <- c("#fdb462","#80b1d3","#fb8072","#bebada","#ffffb3","#f7f7f7"); Color <- c(Color1[5],Color1[1],Color1[2],Color1[4],Color1[3]);
+
+Pvalue <- numeric(); for(i in 1:48)
+{
+  PlotData <- data.frame(Patient=SelectSampleFraction$Patient, TissueType=SelectSampleFraction$TissueType, TissueLabl=SelectSampleFraction$Tissue, TissueLine=SelectSampleFraction$Metas, Value=SelectSampleFraction[,i]);
+  PlotData$TissueType[which(PlotData$TissueType=="Blood")] <- "Bd"; PlotData$TissueType[which(PlotData$TissueType=="Adjacent")] <- "Ad"; PlotData$TissueType[which(PlotData$TissueType=="Primary")] <- "Pr";
+  PlotData$TissueType[which(PlotData$TissueType=="Metastasis")] <- "Mt"; PlotData$TissueType <- factor(PlotData$TissueType, levels=c("Bd","Ad","Pr","Mt")); Title <- colnames(SelectSampleFraction)[i];
+  GroupColor <- c("#ffffb3","#fdb462","#80b1d3","#8dd3c7"); LineColor <- as.character(PlotData$TissueLine); LineColor[which(LineColor=="Pt_As")] <- "#bebada"; LineColor[which(LineColor=="Pt_Li")] <- "#fb8072";
+  NodeColor <- as.character(PlotData$TissueLabl); NodeColor[which(NodeColor=="Blood")] <- "#ffffb3"; NodeColor[which(NodeColor=="Adjacent")] <- "#fdb462"; NodeColor[which(NodeColor=="Primary")] <- "#80b1d3";
+  NodeColor[which(NodeColor=="Ascites")] <- "#bebada"; NodeColor[which(NodeColor=="Liver")] <- "#fb8072"; PlotList[[i]] <- MultiBox(PlotData,GroupColor,NodeColor,LineColor,Title,"kruskal.test");
+  KW.Res <- kruskal.test(Value ~ TissueType, data = PlotData); Pvalue <- c(Pvalue,KW.Res[3]$p.value);
+}; names(Pvalue) <- SelectCluster; FDR <- p.adjust(Pvalue, method = "fdr", n = length(Pvalue));
+SampleCellFraction[[2]] <- SelectSampleFraction; SampleCellPQvalue[[2]] <- rbind(Pvalue,FDR);
+
+pdf("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Feature_01.pdf", width=10, height=3)
+Combine <- plot_grid(PlotList[[27]],PlotList[[48]],PlotList[[12]],PlotList[[32]],nrow=1,ncol=4); print(Combine);
+dev.off()
+##############################################################################################################################################################################
