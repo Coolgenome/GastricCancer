@@ -21,6 +21,7 @@ tiff("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Lineage_01.tif", res=30
 Combine <- plot_grid(Plot01,nrow=1,ncol=1); print(Combine);
 dev.off()
 ##############################################################################################################################################################################
+
 #Fig 1c
 ##############################################################################################################################################################################
 KI67.Objt <- subset(Original.OView03, subset = MKI67 > 0); CellOrder <- c("T&NK","Myeloid","B","Plasma","Mast","Proliferating","Stomach","Intestine","Liver","PLT","RBC","Endo","CAF","Malignant");
@@ -51,6 +52,7 @@ tiff("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Original_01.tif", res=3
 Combine <- plot_grid(Single01,Single02,Single03,Single04,Single05,Single06,nrow=1,ncol=6); print(Combine);
 dev.off()
 ##############################################################################################################################################################################
+
 #Fig 1d
 ##############################################################################################################################################################################
 #CD4 T Cells
@@ -105,6 +107,7 @@ Single01 <- DimPlot(object=StrHluster, cols=Color6, reduction="umap", pt.size=2,
               theme(axis.title.x = element_blank(), axis.title.y = element_blank(), axis.text.x = element_blank(), axis.text.y = element_blank(), legend.position="right"); Combine <- plot_grid(Single01,nrow=1,ncol=1); print(Combine);
 dev.off()
 ##############################################################################################################################################################################
+
 #Fig 1e
 ##############################################################################################################################################################################
 Tclus <- c("CD4T_C01","CD4T_C02","CD4T_C03","CD4T_C04","CD4T_C05","CD4T_C06","CD8T_C01","CD8T_C02","CD8T_C03","CD8T_C04","CD8T_C05","CD8T_C06","CD8T_C07","NKT_All","MAIT_All","gdT_All")
@@ -128,6 +131,7 @@ pdf("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Feature_01.pdf", width=8
 fviz_dend(HClus.PCA, show_labels = TRUE, cex = 0.8, lwd = 1.0, k = 4, rect = TRUE, k_colors = "npg", rect_border = "npg", rect_fill = TRUE, horiz = TRUE, type = "phylogenic");
 dev.off()
 ##############################################################################################################################################################################
+
 #Fig 1f
 ##############################################################################################################################################################################
 #Top
@@ -176,6 +180,7 @@ pdf("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Lineage_01.pdf", width=5
 pheatmap(ROE.Category, scale="row", cluster_rows=F, cluster_col=F, show_colnames=T, show_rownames=T, legend=T);
 dev.off()
 ##############################################################################################################################################################################
+
 #Fig 1g
 ##############################################################################################################################################################################
 PaperBox = function(DataFrame, Color, Method, Title)
