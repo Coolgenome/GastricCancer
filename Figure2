@@ -1,0 +1,526 @@
+library(ggdendro); library(pheatmap); library(igraph);library(arcdiagram); library(circlize);
+#Object
+##############################################################################################################################################################################
+load("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_CorrResult02.RDA");
+load("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_TCRandBCR.RDA");
+
+Original.OView03<- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_OverView03.RDS");
+THluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_ATHluster01.RDS");
+CD4THluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_CD4THluster01.RDS");
+CD8THluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_CD8THluster01.RDS");
+
+#TCRannotation
+CellAnn <- data.frame(Clus=as.character(Original.OView03[[]]$CellCluster), Clas=as.character(Original.OView03[[]]$CellCategory)); rownames(CellAnn) <- rownames(Original.OView03[[]]);
+CommonCell <- intersect(rownames(CellAnn),as.character(IntegratedTCR$barcode)); CommonAnn <- CellAnn[match(CommonCell,rownames(CellAnn)),]; CommonTCR <- IntegratedTCR[match(CommonCell,IntegratedTCR$barcode),];
+PTwithAs <- c("Pt02","Pt03","Pt04","Pt05","Pt11","Pt13","Pt19","Pt21","Pt22","Pt23"); PTwithLi <- c("Pt01","Pt09","Pt10","Pt12","Pt14","Pt15","Pt16","Pt17","Pt18","Pt20");
+PtClass <- as.character(CommonTCR$Patient); PtClass[which(is.na(match(PtClass,PTwithAs))==F)] <- "PTwithAs"; PtClass[which(is.na(match(PtClass,PTwithLi))==F)] <- "PTwithLi";
+TCRannotation <- cbind(CommonAnn,data.frame(Sample=CommonTCR$sample, Patient=CommonTCR$Patient, PtClass=PtClass, Tissue=CommonTCR$ID, TCR=CommonTCR$CTstrict));
+##############################################################################################################################################################################
+#Function
+##############################################################################################################################################################################
+#Panel b
+SelectCorr = function(CorFrame,Cindex,Pindex,Qindex,Top)
+{
+  SigCorr <- CorFrame[which(abs(CorFrame[,Cindex])>=0.5&CorFrame[,Pindex]<=0.05),c(1,Cindex,Pindex,Qindex)]; SigCorr <- SigCorr[order(abs(SigCorr[,2]),decreasing=T),];
+  ClusPair <- as.character(SigCorr[,1]); Split <- str_split(ClusPair,"::"); Select <- numeric(); CorrList <- list();
+  for(i in 1:length(Split)) { Sub1 <- str_split(Split[[i]][1],"_"); Sub2 <- str_split(Split[[i]][2],"_"); if(Sub1[[1]][1]!=Sub2[[1]][1]) { Select <- c(Select, i); } };
+  FilCorr <- SigCorr[Select,]; TopCorr <- FilCorr[c(1:Top),]; CorrList[[1]] <- SigCorr; CorrList[[2]] <- FilCorr; CorrList[[3]] <- TopCorr; return(CorrList);
+}
+ChooseCorr = function(CorFrame,Cindex,Pindex,Qindex,Top)
+{
+  SigCorr <- CorFrame[which(abs(CorFrame[,Cindex])>=0.5&CorFrame[,Pindex]<=0.05),c(1,Cindex,Pindex,Qindex)]; SigCorr <- SigCorr[order(SigCorr[,2],decreasing=T),];
+  ClusPair <- as.character(SigCorr[,1]); Split <- str_split(ClusPair,"::"); Select <- numeric(); CorrList <- list();
+  for(i in 1:length(Split)) { Sub1 <- str_split(Split[[i]][1],"_"); Sub2 <- str_split(Split[[i]][2],"_"); if(Sub1[[1]][1]!=Sub2[[1]][1]) { Select <- c(Select, i); } };
+  FilCorr <- SigCorr[Select,]; TopCorr <- FilCorr[c(c(1:Top),c((nrow(FilCorr)-Top+1):nrow(FilCorr))),]; CorrList[[1]] <- SigCorr; CorrList[[2]] <- FilCorr; CorrList[[3]] <- TopCorr; return(CorrList);
+}
+TopCorrMatrix = function(TopCorr)
+{
+  TopPair <- as.character(TopCorr$Clus); Split <- str_split(TopPair,"::"); Pair <- matrix(0,nrow=length(Split),ncol=3); colnames(Pair) <- c("from","to","value");
+  for(i in 1:length(Split)) { Pair[i,1] <- Split[[i]][1]; Pair[i,2] <- Split[[i]][2]; Pair[i,3] <- TopCorr[i,2]; }; Clus <- unique(c(Pair[,1], Pair[,2]));
+  SelectCCorr <- matrix(0,nrow=length(Clus),ncol=length(Clus)); rownames(SelectCCorr) <- Clus; colnames(SelectCCorr) <- Clus;
+  for(i in 1:nrow(Pair))
+  {
+    SelectCCorr[which(rownames(SelectCCorr)==Pair[i,1]),which(colnames(SelectCCorr)==Pair[i,2])] <- as.numeric(Pair[i,3]);
+    SelectCCorr[which(rownames(SelectCCorr)==Pair[i,2]),which(colnames(SelectCCorr)==Pair[i,1])] <- as.numeric(Pair[i,3]);
+  }; return(SelectCCorr);
+}
+CircosPlot = function(Select.CCorr)
+{
+  #Select.CCorr <- TopCorrMatrix(Li.CorrMatx[[3]]); #Select.CCorr1 <- TopCorrMatrix(Pr.CorrList[[3]]); Select.CCorr2 <- TopCorrMatrix(Pr.CorrMatx[[3]]);
+  ColorMatrix <- Select.CCorr; ColorMatrix[which(Select.CCorr>0)] <- "#fdae61"; ColorMatrix[which(Select.CCorr<0)] <- "#2166ac"; ColorMatrix[which(Select.CCorr==0)] <- "white";
+  nm <- SelectLabl; group <- structure(SelectClas, names = nm); grid.col <- group; grid.col[which(grid.col=="CD4T")] <- "#8dd3c7"; grid.col[which(grid.col=="CD8T")] <- "#ffffb3";
+  grid.col[which(grid.col=="OtherT")] <- "#bebada"; grid.col[which(grid.col=="NK")] <- "#fb8072"; grid.col[which(grid.col=="B")] <- "#80b1d3"; grid.col[which(grid.col=="Plasma")] <- "#fdb462";
+  grid.col[which(grid.col=="Macro")] <- "#b3de69"; grid.col[which(grid.col=="Mono")] <- "#fccde5"; grid.col[which(grid.col=="OtherM")] <- "#d9d9d9"; grid.col[which(grid.col=="Stroma")] <- "#bc80bd";
+  
+  KeyClus <- list(); KeyClus[[1]] <- c("CD4T_c1","CD4T_c2","CD4T_c3","CD4T_c4","CD4T_c5","CD4T_c6"); KeyClus[[2]] <- c("CD8T_c1","CD8T_c2","CD8T_c3","CD8T_c4","CD8T_c5","CD8T_c6","CD8T_c7");
+  KeyClus[[3]] <- c("Prolif_T","NKT","gdT","MAIT"); KeyClus[[4]] <- c("NK_c1","NK_c2","NK_c3","NK_c4","NK_c5","NK_c6"); KeyClus[[5]] <- c("B_c1","B_c2","B_c3","B_c4"); 
+  KeyClus[[6]] <- c("Plasma_c1","Plasma_c2","Plasmablast"); KeyClus[[7]] <- c("Macro_c1","Macro_c2","Macro_c3","Macro_c4","Macro_c5","Macro_c6"); KeyClus[[8]] <- c("Mono_c1","Mono_c2","Mono_c3");
+  KeyClus[[9]] <- c("Mast","Prolif_M","cDC","pDC"); KeyClus[[10]] <- c("CAF_c1","CAF_c2","CAF_c3","Endo_c1","Pericyte"); names(KeyClus) <- c("CD4T","CD8T","OtherT","NK","B","Plasma","Macro","Mono","OtherM","Stroma");
+  KeyLabl <- list(); for(i in 1:length(KeyClus)) { KeyLabl[[i]] <- intersect(KeyClus[[i]],rownames(Select.CCorr)); }; names(KeyLabl) <- names(KeyClus); print(KeyLabl);
+  
+  pdf("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Lineage_01.pdf", width=10, height=10)
+  chordDiagram(Select.CCorr, group = group, grid.col = grid.col, col = ColorMatrix, annotationTrack = c("grid"), scale = TRUE, preAllocateTracks = list(track.height = mm_h(4), track.margin = c(mm_h(4), 0)))
+  circos.track(track.index = 2, panel.fun = function(x, y) {
+    sector.index = get.cell.meta.data("sector.index"); xlim = get.cell.meta.data("xlim"); ylim = get.cell.meta.data("ylim"); circos.text(mean(xlim), mean(ylim), sector.index, cex = 0.6, niceFacing = TRUE) },
+    bg.border = NA)
+  highlight.sector(KeyLabl[[1]], track.index = 1, col = "#8dd3c7", text = "CD4T", cex = 0.8, text.col = "white", niceFacing = TRUE)
+  highlight.sector(KeyLabl[[2]], track.index = 1, col = "#ffffb3", text = "CD8T", cex = 0.8, text.col = "white", niceFacing = TRUE)
+  highlight.sector(KeyLabl[[3]], track.index = 1, col = "#bebada", text = "Other_T", cex = 0.8, text.col = "white", niceFacing = TRUE)
+  #highlight.sector(KeyLabl[[4]], track.index = 1, col = "#fb8072", text = "NK", cex = 0.8, text.col = "white", niceFacing = TRUE)
+  highlight.sector(KeyLabl[[5]], track.index = 1, col = "#80b1d3", text = "B", cex = 0.8, text.col = "white", niceFacing = TRUE)
+  highlight.sector(KeyLabl[[6]], track.index = 1, col = "#fdb462", text = "Plasma", cex = 0.8, text.col = "white", niceFacing = TRUE)
+  highlight.sector(KeyLabl[[7]], track.index = 1, col = "#b3de69", text = "Macro", cex = 0.8, text.col = "white", niceFacing = TRUE)
+  highlight.sector(KeyLabl[[8]], track.index = 1, col = "#fccde5", text = "Mono", cex = 0.8, text.col = "white", niceFacing = TRUE)
+  highlight.sector(KeyLabl[[9]], track.index = 1, col = "#d9d9d9", text = "Other_M", cex = 0.8, text.col = "white", niceFacing = TRUE)
+  highlight.sector(KeyLabl[[10]], track.index = 1, col = "#bc80bd", text = "Stroma", cex = 0.8, text.col = "white", niceFacing = TRUE)
+  circos.clear()
+  dev.off()
+}
+LollipopPlot = function(DataFrame)
+{
+  Color <- c("#feb24c","#fd8d3c","#fc4e2a","#e31a1c","#bd0026","#800026");#c("#fff5eb","#fee6ce","#fdd0a2","#fdae6b","#fd8d3c","#f16913","#d94801","#a63603","#7f2704")
+  Plot <- ggplot(DataFrame, aes(x=Class, y=Value, group=1)) + geom_segment(aes(y=0, yend=Value, x=Class, xend=Class),colour="#252525") + geom_point(aes(fill=Scale),shape=21,size=7,colour="#d9d9d9") +
+    geom_line(colour="#fb8072", linetype="11") + ylim(-1.0,1.0) + scale_fill_gradientn(colours=Color) + #coord_flip() +
+    theme(panel.background=element_rect(fill="white",colour="white",size=0), axis.line=element_line(colour="black",size=0.25), axis.text = element_blank(),
+          axis.title=element_blank(), plot.title = element_text(hjust = 0.5, size=8, face="plain"), legend.position="none");
+  return(Plot);
+}
+
+StackBarPlot = function(DataFrame, Color, Position)
+{
+  Plot <- ggplot(data=DataFrame, aes(variable,value,fill=Category)) + geom_bar(stat="identity", position="fill",color="black", width=0.8,size=0.25) + scale_fill_manual(values=Color) +#coord_flip() +
+    theme(panel.background=element_rect(fill="white",colour="white",size=0), axis.line=element_line(colour="black",size=0.25), axis.title=element_blank(), axis.text = element_text(size=10,face="plain"),
+          legend.position=Position); return(Plot); #axis.text.x = element_text(angle=45, hjust=1), axis.text.y =element_blank(), 
+  
+}
+BarStackPlot = function(DataFrame, Color, Position)
+{
+  Plot <- ggplot(data=DataFrame, aes(variable,value,fill=Category)) + geom_bar(stat="identity", position="stack",color="black", width=0.8,size=0.25) + scale_fill_manual(values=Color) +#coord_flip() +
+    theme(panel.background=element_rect(fill="white",colour="white",size=0), axis.line=element_line(colour="black",size=0.25), axis.title=element_blank(), axis.text = element_text(size=10,face="plain"),
+          legend.position=Position); return(Plot); #axis.text.x = element_text(angle=45, hjust=1),axis.text.y =element_blank(), 
+  
+}
+
+GLIPHspecific = function(PatternInfo,SelectMotif,SelectInfor)
+{
+  Info.Test <- matrix(0,nrow=length(SelectMotif),ncol=length(SelectInfor)); rownames(Info.Test) <- SelectMotif; colnames(Info.Test) <- SelectInfor;
+  Info.Num <- matrix(0,nrow=length(SelectMotif),ncol=length(SelectInfor)); rownames(Info.Num) <- SelectMotif; colnames(Info.Num) <- SelectInfor;
+  Info.Roe <- matrix(0,nrow=length(SelectMotif),ncol=length(SelectInfor)); rownames(Info.Roe) <- SelectMotif; colnames(Info.Roe) <- SelectInfor;
+  
+  for(i in 1:length(SelectMotif))
+  {
+    for(j in 1:length(SelectInfor))
+    {
+      #Fisher's Exact Test
+      #Sum <- length(unique(CombindedGLIPH$Cell)); SumRow1 <- length(which(CombindedGLIPH$Pattern==SelectPattern[i])); SumCol1 <- length(which(CombindedGLIPH$Tissue=="As"));
+      #A <- length(which(CombindedGLIPH$Tissue=="As"&CombindedGLIPH$Pattern==SelectPattern[i])); B <- SumRow1-A; C <- SumCol1-A; D <- Sum-(A+B+C);
+      #ConTable <- t(matrix(c(A,B,C,D), nrow=2, dimnames = list(Tissue = c("In", "Out"), Pattern = c("In", "Out")))); chisq.test(ConTable);
+      #Hypergeometric Test
+      q <- length(unique(as.character(PatternInfo$Cell[which(PatternInfo$Motif==SelectMotif[i]&PatternInfo$Infor==SelectInfor[j])]))); m <- length(unique(as.character(PatternInfo$Cell[which(PatternInfo$Infor==SelectInfor[j])])));
+      n <- length(unique(PatternInfo$Cell)) - length(unique(as.character(PatternInfo$Cell[which(PatternInfo$Infor==SelectInfor[j])]))); k <- length(unique(as.character(PatternInfo$Cell[which(PatternInfo$Motif==SelectMotif[i])])));
+      Info.Test[i,j] <- 1-phyper(q-1,m,n,k); Info.Num[i,j] <- length(unique(as.character(PatternInfo$Cell[which(PatternInfo$Motif==SelectMotif[i]&PatternInfo$Infor==SelectInfor[j])])));
+    }
+  }
+  
+  ChiSquare.Input <- as.table(Info.Num); dimnames(ChiSquare.Input) <- list(Motif=SelectMotif, Infor=SelectInfor); ChiSquare.Output <- chisq.test(ChiSquare.Input);
+  Roe.Table <- ChiSquare.Output$observed/ChiSquare.Output$expected; for(i in 1:nrow(Roe.Table)) { for(j in 1:ncol(Roe.Table)) { Info.Roe[i,j] <- Roe.Table[i,j]; } }; SigInforMotif <- character(); SigInforSummary <- list();
+  
+  for(j in 1:length(SelectInfor))
+  {
+    SigPattern <- character(); for(i in 1:length(SelectMotif)) { if(Info.Test[i,j]<=0.05) { SigPattern <- c(SigPattern,rownames(Info.Test)[i]); }; }; SigInforMotif <- c(SigInforMotif,SigPattern); SigSummary <- matrix(0,nrow=0,ncol=0);
+    if(length(SigPattern)>0)
+    {
+      SigSummary <- matrix(0,nrow=length(SigPattern),ncol=3); rownames(SigSummary) <- SigPattern; colnames(SigSummary) <- c("Length","CloneSize","CellSize"); SigSummary[,1] <- nchar(SigPattern)
+      for(m in 1:length(SigPattern)) { SigTable <- PatternInfo[which(PatternInfo$Motif==SigPattern[m]),]; SigSummary[m,2] <- length(unique(SigTable$Clone)); SigSummary[m,3] <- length(unique(SigTable$Cell)); SigInforSummary[[j]] <- SigSummary; }
+    }
+  }
+  ResultList <- list(); ResultList[[1]] <- Info.Test; ResultList[[2]] <- Info.Num; ResultList[[3]] <- Info.Roe; ResultList[[4]] <- SigInforSummary; ResultList[[5]] <- unique(SigInforMotif);
+  names(ResultList) <- c("Info.Test","Info.Num","Info.Roe","SigInforSummary","SigInforMotif"); return(ResultList);
+}
+
+CellClone2D = function(PtList,Tissue)
+{
+  TCRList <- list(); for(i in 1:length(PtList))
+  {
+    TCRmeta1 <- TCRannotation[which(TCRannotation$Patient==PtList[i]&TCRannotation$Tissue==Tissue[1]),]; TCRcell1 <- unique(rownames(TCRmeta1));
+    TCRmeta2 <- TCRannotation[which(TCRannotation$Patient==PtList[i]&TCRannotation$Tissue==Tissue[2]),]; TCRcell2 <- unique(rownames(TCRmeta2));
+    CommonClone <- unique(c(TCRmeta1$TCR,TCRmeta2$TCR)); TCRmatrix <- matrix(0,nrow=length(CommonClone),ncol=7);
+    colnames(TCRmatrix) <- c(Tissue[1],Tissue[2],"CellSize1","CellSize2","Pvalue","ORvalue","Clone"); print(PtList[i]);
+    
+    for(j in 1:length(CommonClone))
+    {
+      if(length(TCRcell1)!=0) { TCRmatrix[j,1] <- length(rownames(TCRmeta1)[which(TCRmeta1$TCR==CommonClone[j])])/length(TCRcell1); } else { TCRmatrix[j,1] <- 0; }
+      if(length(TCRcell2)!=0) { TCRmatrix[j,2] <- length(rownames(TCRmeta2)[which(TCRmeta2$TCR==CommonClone[j])])/length(TCRcell2); } else { TCRmatrix[j,2] <- 0; }
+      TCRmatrix[j,3] <- length(rownames(TCRmeta1)[which(TCRmeta1$TCR==CommonClone[j])]); TCRmatrix[j,4] <- length(rownames(TCRmeta2)[which(TCRmeta2$TCR==CommonClone[j])]);
+      
+      TestData <- data.frame("CloneY"=c(as.numeric(TCRmatrix[j,3]), as.numeric(TCRmatrix[j,4])), "CloneN"=c((length(TCRcell1)-as.numeric(TCRmatrix[j,3])),(length(TCRcell2)-as.numeric(TCRmatrix[j,4]))), row.names = c(Tissue[1], Tissue[2]), stringsAsFactors = FALSE);
+      TestRest <- fisher.test(TestData); TCRmatrix[j,5] <- TestRest$p.value; TCRmatrix[j,6] <- TestRest$estimate; TCRmatrix[j,7] <- CommonClone[j];
+    }; TCRList[[i]] <- TCRmatrix; 
+  }; names(TCRList) <- PtList; return(TCRList);
+}
+InfoClone2D = function(TCRList)
+{
+  CloneList <- as.data.frame(matrix(0,nrow=0,ncol=10));
+  for(i in 1:length(TCRList))
+  {
+    TCRmatrix <- TCRList[[i]]; SelectIndex <- union(which(as.numeric(TCRmatrix[,3])>=5), which(as.numeric(TCRmatrix[,4])>=5));
+    if(length(SelectIndex)==1)
+    {
+      TCRinform <- TCRmatrix[SelectIndex,];
+      ExpandClone <- data.frame(RatioX=TCRinform[1], RatioY=TCRinform[2], SizeX=TCRinform[3], SizeY=TCRinform[4], CellSize=(as.numeric(TCRinform[3])+as.numeric(TCRinform[4])),
+                                RatioFold=(as.numeric(TCRinform[1])/as.numeric(TCRinform[2])), Pvalue=TCRinform[5], ORvalue=TCRinform[6], Patient=names(TCRList)[i], Clone=TCRinform[7]);
+      CloneList <- rbind(CloneList,ExpandClone);
+    }
+    if(length(SelectIndex)>=2)
+    {
+      TCRinform <- TCRmatrix[SelectIndex,];
+      ExpandClone <- data.frame(RatioX=TCRinform[,1], RatioY=TCRinform[,2], SizeX=TCRinform[,3], SizeY=TCRinform[,4], CellSize=(as.numeric(TCRinform[,3])+as.numeric(TCRinform[,4])),
+                                RatioFold=(as.numeric(TCRinform[,1])/as.numeric(TCRinform[,2])), Pvalue=TCRinform[,5], ORvalue=TCRinform[,6], Patient=rep(names(TCRList)[i],nrow(TCRinform)), Clone=TCRinform[,7]);
+      CloneList <- rbind(CloneList,ExpandClone);
+    }
+  }; return(CloneList);
+}
+ExpaClone2D = function(TCRmatrix)
+{
+  Type1 <- character(); Type2 <- character(); Select <- numeric();
+  for(i in 1:nrow(TCRmatrix))
+  {
+    #Specific
+    if(as.numeric(TCRmatrix[i,1])==0) { Type1 <- c(Type1,"Y.Specific"); Type2 <- c(Type2,"Y.Specific"); }; if(as.numeric(TCRmatrix[i,2])==0) { Type1 <- c(Type1,"X.Specific"); Type2 <- c(Type2,"X.Specific"); };
+    #Expanded and Shared
+    if(as.numeric(TCRmatrix[i,1])!=0&as.numeric(TCRmatrix[i,2])!=0)
+    {
+      #Type 1
+      if(as.numeric(TCRmatrix[i,6])>=2) { Type1 <- c(Type1,"X.Expanded"); }; if(as.numeric(TCRmatrix[i,6])<=0.5) { Type1 <- c(Type1,"Y.Expanded"); }; if(as.numeric(TCRmatrix[i,6])<2&as.numeric(TCRmatrix[i,6])>0.5) { Type1 <- c(Type1,"Shared"); }
+      #Type 2
+      if(as.numeric(TCRmatrix[i,7])<=0.05) { if(as.numeric(TCRmatrix[i,6])>1) { Type2 <- c(Type2,"X.Expanded"); }; if(as.numeric(TCRmatrix[i,6])<1) { Type2 <- c(Type2,"Y.Expanded"); }; } else { Type2 <- c(Type2,"Shared"); }
+    }
+  }
+  print(c(length(Type1),length(Type1),nrow(TCRmatrix)));
+  ExpandClone <- cbind(data.frame(Type1=Type1,Type2=Type2), TCRmatrix); return(ExpandClone);
+}
+ClusClone2D = function(TCRannotation,CloneInfo)
+{
+  Type <- character(); Size <- numeric(); for(i in 1:nrow(CloneInfo))
+  {
+    CloneClus <- as.character(TCRannotation$Clus[which(TCRannotation$TCR==as.character(CloneInfo$Clone)[i])]); Exhaust <- length(which(CloneClus=="CD8T_C06"));
+    if(Exhaust>0) { Type <- c(Type, "Exhaust"); Size <- c(Size, Exhaust); } else { Type <- c(Type, "Other"); Size <- c(Size, length(CloneClus)); }
+  }; CloneInfo$Type2 <- Type; CloneInfo$CellSize <- Size; return(CloneInfo);
+}
+Scatterplot = function(DataFrame,Label,Title,Position,Level,Color)
+{
+  DataFrame$RatioX <- as.numeric(DataFrame$RatioX); DataFrame$RatioY <- as.numeric(DataFrame$RatioY); DataFrame$CellSize <- as.numeric(DataFrame$CellSize); DataFrame$Type2 <- factor(DataFrame$Type2,levels=Level);
+  Plot <- ggplot(data=DataFrame, aes(x=RatioX,y=RatioY,size=CellSize,color=Type2)) + geom_point() + ggtitle(Title) + xlab(Label[1]) + ylab(Label[2]) +
+    scale_x_continuous(trans='log10') + scale_y_continuous(trans='log10') + #guides(size = guide_legend((title="Value")),fill = guide_legend((title="Value"))) +
+    scale_color_manual(values=Color) + 
+    theme(panel.background=element_rect(fill="white",colour="white",size=0), axis.line=element_line(colour="black",size=0.25), axis.title=element_text(size=10,face="plain"), axis.text = element_text(size=10,face="plain"),
+          legend.position=Position); return(Plot);
+}
+##############################################################################################################################################################################
+
+#Fig 2a
+##############################################################################################################################################################################
+#Input
+CellClus.Freq <- as.data.frame(table(Original.OView03[[]]$CellClus)); CellSamp.Freq <- as.data.frame(table(Original.OView03[[]]$orig.ident));
+CellClus <- as.character(unique(Original.OView03[[]]$CellClus)); CellSamp <- as.character(unique(Original.OView03[[]]$orig.ident));
+SelectSamp <- as.character(CellSamp.Freq$Var1[which(CellSamp.Freq$Freq>=500)]); SelectSamp <- setdiff(SelectSamp,c("Pt05_Ov","Pt11_Ov"));
+SelectClus <- c("CD4T_C01","CD4T_C02","CD4T_C03","CD4T_C04","CD4T_C05","CD4T_C06","CD8T_C01","CD8T_C02","CD8T_C03","CD8T_C04","CD8T_C05","CD8T_C06","CD8T_C07","NKT_All","MAIT_All","gdT_All","ProlifT_All",
+                "NK_C01","NK_C02","NK_C03","NK_C04","NK_C05","NK_C06","B_C01","Plasma_C01","B_C02","Plasma_C02","B_C03","Plasma_C03","B_C04",
+                "Mono_C01","Macro_C01","Mono_C02","Macro_C02","Mono_C03","Macro_C03","cDC_All","Macro_C04","Mast_All","Macro_C05","Macro_C06","pDC_All","ProlifM_All","CAF_C01","Pericyte_C01","CAF_C02","CAF_C03","Endo_C01");
+CellCluster.Count <- matrix(0,nrow=length(SelectClus),ncol=length(SelectSamp)); rownames(CellCluster.Count) <- SelectClus; colnames(CellCluster.Count) <- SelectSamp; 
+for(i in 1:length(SelectClus)) { for(j in 1:length(SelectSamp)) { CellCluster.Count[i,j] <- length(which(Original.OView03[[]]$CellClus==SelectClus[i]&Original.OView03[[]]$orig.ident==SelectSamp[j])); } }
+CellCluster.Fract <- matrix(0,nrow=length(SelectClus),ncol=length(SelectSamp)); rownames(CellCluster.Fract) <- SelectClus; colnames(CellCluster.Fract) <- SelectSamp; 
+for(j in 1:length(SelectSamp)) { if(sum(CellCluster.Count[,j])==0) {CellCluster.Fract[,j] <- 0;} else {CellCluster.Fract[,j] <- CellCluster.Count[,j]/sum(CellCluster.Count[,j]);} }
+
+#Top
+ClusObjt <- pheatmap(CellCluster.Fract, scale="row", color=myColor, breaks=myBreaks, cluster_rows=T, cluster_col=T, show_colnames=T, show_rownames=T, border_color = NA,
+                     clustering_distance_rows="euclidean", clustering_distance_cols="euclidean", clustering_method="ward.D", annotation_col=ann_col, annotation_colors = ann_colors, legend=T);
+dhc <- as.dendrogram(ClusObjt[[2]]); ddata <- dendro_data(dhc, type = "triangle");
+pdf("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Lineage_01.pdf", width=20, height=4)
+ggplot(segment(ddata)) + geom_segment(aes(x = x, y = y, xend = xend, yend = yend)) + scale_y_reverse(expand = c(0.2, 0)) + theme_dendro()#+ coord_flip()
+dev.off()
+
+#Middle
+ann_col <- data.frame(Tissue=colnames(CellCluster.Fract)); rownames(ann_col) <- colnames(CellCluster.Fract); ann_col$Tissue[grep("_PBMC",ann_col$Tissue)] <- "Blood"; ann_col$Tissue[grep("_PB",ann_col$Tissue)] <- "Blood";
+ann_col$Tissue[grep("_Ad",ann_col$Tissue)] <- "Adjacent"; ann_col$Tissue[grep("_As",ann_col$Tissue)] <- "Ascites"; ann_col$Tissue[grep("_Li",ann_col$Tissue)] <- "Liver"; ann_col$Tissue[grep("_P",ann_col$Tissue)] <- "Primary";
+Color0 <- c("#b3de69","#fdbf6f","#bc80bd","#e31a1c","#92c5de"); ann_colors = list(Tissue = c(Adjacent=Color0[1],Primary=Color0[5],Liver=Color0[3],Ascites=Color0[4],Blood=Color0[2]));
+
+Break1 <- seq(-0.5,0,by=0.05); Break2 <- seq(0,1.2,by=0.05); myBreaks <- unique(c(Break1,Break2));
+Color1 <- c("#ff7f00","#f7f7f7"); Color2 <- c("#f7f7f7","#313695"); myColor <- c(colorRampPalette(rev(Color2))(length(Break1)), colorRampPalette(rev(Color1))(length(Break2)));
+pdf("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Lineage_01.pdf", width=15, height=10)
+pheatmap(CellCluster.Fract, scale="row", color=myColor, breaks=myBreaks, cluster_rows=T, cluster_col=T, show_colnames=T, show_rownames=T, border_color = NA,
+         clustering_distance_rows="euclidean", clustering_distance_cols="euclidean", clustering_method="ward.D", annotation_col=ann_col, annotation_colors = ann_colors, legend=T);
+dev.off()
+
+#Bottom
+SampleLabel <- ClusObjt[[2]][[4]][ClusObjt[[2]][[3]]]; Sample <- as.character(unique(Original.OView03[[]]$orig.ident)); 
+Tissue <- as.character(unique(Original.OView03[[]]$Tissue)); Patient <- as.character(unique(Original.OView03[[]]$Patient));
+Summary <- matrix(NA,nrow=length(Patient),ncol=length(Tissue)); rownames(Summary) <- Patient; colnames(Summary) <- Tissue;
+for(i in 1:length(Patient)) { for(j in 1:length(Tissue)) { if(length(which(Sample==paste(Patient[i],Tissue[j],sep="_")))>0) { Summary[i,j] <- paste(Patient[i],Tissue[j],sep="_"); } } }
+
+Link <- matrix(NA,nrow=length(Patient),ncol=2); rownames(Link) <- Patient; colnames(Link) <- c("Pri","Met"); Link[,1] <- Summary[,2]; 
+Link[which(is.na(Summary[,3])==F),2] <- Summary[which(is.na(Summary[,3])==F),3]; Link[which(is.na(Summary[,6])==F),2] <- Summary[which(is.na(Summary[,6])==F),6];
+SelectLink <- Link[which(is.na(Link[,1])==F&is.na(Link[,2])==F),]; #SampleOrder <- SampleLabel[which(is.na(match(SampleLabel,c(SelectLink[,1],SelectLink[,2])))==F)]
+OtherSample <- SampleLabel[which(is.na(match(SampleLabel,c(SelectLink[,1],SelectLink[,2])))==T)];
+NonLink <- matrix(NA,nrow=length(OtherSample),ncol=2); rownames(NonLink) <- OtherSample; colnames(NonLink) <- c("Source","Target");
+NonLink[,1] <- OtherSample; NonLink[,2] <- OtherSample; DrawLink <- rbind(SelectLink,NonLink);
+NodeColor <- c(SelectLink[1, 1],SelectLink[1, 2],SelectLink[2, 1],SelectLink[2, 2],SelectLink[3, 1],SelectLink[3, 2],SelectLink[4, 1],SelectLink[4, 2],SelectLink[5, 1],
+               SelectLink[5, 2],SelectLink[6, 1],SelectLink[6, 2],SelectLink[7, 1],SelectLink[7, 2],SelectLink[8, 1],SelectLink[8, 2],SelectLink[9, 1],SelectLink[9, 2],
+               SelectLink[10,1],SelectLink[10,2],SelectLink[11,1],SelectLink[11,2],SelectLink[12,1],SelectLink[12,2],SelectLink[13,1],SelectLink[13,2],SelectLink[14,1],
+               SelectLink[14,2],SelectLink[15,1],SelectLink[15,2],SelectLink[16,1],SelectLink[16,2],OtherSample); names(NodeColor) <- NodeColor;
+NodeColor[grep("_PB",NodeColor)] <- "#ffffb3"; NodeColor[grep("_Ad",NodeColor)] <- "#fdb462"; NodeColor[grep("_P",NodeColor)] <- "#80b1d3"; NodeColor[grep("_As",NodeColor)] <- "#bebada"; NodeColor[grep("_Li",NodeColor)] <- "#fb8072";
+LineColor <- rep("#ffffff",nrow(DrawLink)); LineColor[grep("_As",DrawLink[,2])] <- "#bebada"; LineColor[grep("_Li",DrawLink[,2])] <- "#fb8072";
+pdf("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Lineage_01.pdf", width=20, height=4)
+arcplot(DrawLink,ordering=SampleLabel,col.node=NodeColor,col.arcs = LineColor,cex.nodes=2)
+dev.off()
+##############################################################################################################################################################################
+#Fig 2b
+##############################################################################################################################################################################
+#Top
+SelectLabl <- c("B_c4","CD4T_c4","B_c1","Plasma_c2","CAF_c1","Plasmablast","CD8T_c4","CAF_c3","Plasma_c1","Mast","Macro_c3","Endo_c1","Pericyte","CD8T_c6","Prolif_T","CAF_c2","Macro_c2",
+                "NK_c4","CD8T_c1","NK_c2","NKT","pDC","Macro_c1","Macro_c6","Prolif_M","B_c3","cDC","CD4T_c5","CD4T_c6","CD8T_c5","CD8T_c3","gdT","CD4T_c2","NK_c1","NK_c3",
+                "Mono_c1","Mono_c3","CD8T_c2","Mono_c2","NK_c6","Macro_c5","B_c2","NK_c5","CD4T_c3","CD8T_c7","Macro_c4","MAIT","CD4T_c1");
+
+SelectClas <- c("B","CD4T","B","Plasma","Stroma","Plasma","CD8T","Stroma","Plasma","OtherM","Macro","Stroma","Stroma","CD8T","OtherT","Stroma","Macro",
+                "NK","CD8T","NK","OtherT","OtherM","Macro","Macro","OtherM","B","OtherM","CD4T","CD4T","CD8T","CD8T","OtherT","CD4T","NK","NK",
+                "Mono","Mono","CD8T","Mono","NK","Macro","B","NK","CD4T","CD8T","Macro","OtherT","CD4T");
+##Input Hightlight
+TopA <- 30; TopB <- 15
+Bd.CorrList <- SelectCorr(CorRes,2,3,14,TopA); Bd.CorrList[[3]] <- Bd.CorrList[[3]][which(is.na(Bd.CorrList[[3]]$Clus)==FALSE),];
+Bd.CorrMatx <- ChooseCorr(CorRes,2,3,14,TopB); Bd.CorrMatx[[3]] <- Bd.CorrMatx[[3]][which(is.na(Bd.CorrMatx[[3]]$Clus)==FALSE),];
+#print(c(length(which(Bd.CorrList[[2]][,2]>0)), length(which(Bd.CorrList[[2]][,2]<0)), length(which(Bd.CorrList[[3]][,2]>0)), length(which(Bd.CorrList[[3]][,2]<0))));
+Ad.CorrList <- SelectCorr(CorRes,4,5,15,TopA); Ad.CorrList[[3]] <- Ad.CorrList[[3]][which(is.na(Ad.CorrList[[3]]$Clus)==FALSE),];
+Ad.CorrMatx <- ChooseCorr(CorRes,4,5,15,TopB); Ad.CorrMatx[[3]] <- Ad.CorrMatx[[3]][which(is.na(Ad.CorrMatx[[3]]$Clus)==FALSE),];
+#print(c(length(which(Ad.CorrList[[2]][,2]>0)), length(which(Ad.CorrList[[2]][,2]<0)), length(which(Ad.CorrList[[3]][,2]>0)), length(which(Ad.CorrList[[3]][,2]<0))));
+Pr.CorrList <- SelectCorr(CorRes,6,7,16,TopA); Pr.CorrList[[3]] <- Pr.CorrList[[3]][which(is.na(Pr.CorrList[[3]]$Clus)==FALSE),];
+Pr.CorrMatx <- ChooseCorr(CorRes,6,7,16,TopB); Pr.CorrMatx[[3]] <- Pr.CorrMatx[[3]][which(is.na(Pr.CorrMatx[[3]]$Clus)==FALSE),];
+#print(c(length(which(Pr.CorrList[[2]][,2]>0)), length(which(Pr.CorrList[[2]][,2]<0)), length(which(Pr.CorrList[[3]][,2]>0)), length(which(Pr.CorrList[[3]][,2]<0))));
+As.CorrList <- SelectCorr(CorRes,8,9,17,TopA); As.CorrList[[3]] <- As.CorrList[[3]][which(is.na(As.CorrList[[3]]$Clus)==FALSE),];
+As.CorrMatx <- ChooseCorr(CorRes,8,9,17,TopB); As.CorrMatx[[3]] <- As.CorrMatx[[3]][which(is.na(As.CorrMatx[[3]]$Clus)==FALSE),];
+#print(c(length(which(As.CorrList[[2]][,2]>0)), length(which(As.CorrList[[2]][,2]<0)), length(which(As.CorrList[[3]][,2]>0)), length(which(As.CorrList[[3]][,2]<0))));
+Li.CorrList <- SelectCorr(CorRes,10,11,18,TopA); Li.CorrList[[3]] <- Li.CorrList[[3]][which(is.na(Li.CorrList[[3]]$Clus)==FALSE),];
+Li.CorrMatx <- ChooseCorr(CorRes,10,11,18,TopB); Li.CorrMatx[[3]] <- Li.CorrMatx[[3]][which(is.na(Li.CorrMatx[[3]]$Clus)==FALSE),];
+#print(c(length(which(Li.CorrList[[2]][,2]>0)), length(which(Li.CorrList[[2]][,2]<0)), length(which(Li.CorrList[[3]][,2]>0)), length(which(Li.CorrList[[3]][,2]<0))));
+
+CircosPlot(TopCorrMatrix(Pr.CorrList[[3]]));CircosPlot(TopCorrMatrix(Pr.CorrMatx[[3]]));
+CircosPlot(TopCorrMatrix(As.CorrList[[3]]));CircosPlot(TopCorrMatrix(As.CorrMatx[[3]]));
+CircosPlot(TopCorrMatrix(Li.CorrList[[3]]));CircosPlot(TopCorrMatrix(Li.CorrMatx[[3]]));
+
+#Bottom
+SelectPair <- c("Macro_c6::CD4T_c5","CD8T_c1::Macro_c1","Macro_c3::CD8T_c6","CAF_c1::CD8T_c4","Endo_c1::CD8T_c6","Pericyte::CD8T_c6",
+                "CAF_c1::Macro_c6","Endo_c1::Macro_c2","Pericyte::Macro_c2");
+PlotList <- list(); PlotData <- list(); for(i in 1:length(SelectPair))
+{
+  Index <- which(CorRes$Clus==SelectPair[i]);
+  PlotData[[i]] <- data.frame(Class=c("Blood","Adjacent","Primary","Ascites","Liver"),Value=as.numeric(CorRes[Index,c(2,4,6,8,10)]),Scale=as.numeric(CorRes[Index,c(3,5,7,9,11)]));
+  PlotData[[i]]$Class <- factor(PlotData[[i]]$Class, levels=c("Blood","Adjacent","Primary","Ascites","Liver")); PlotList[[i]] <- LollipopPlot(PlotData[[i]]);
+}
+
+pdf("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Feature_01.pdf", width=8, height=6)
+Combine <- plot_grid(PlotList[[1]],PlotList[[2]],PlotList[[3]],PlotList[[4]],PlotList[[5]],PlotList[[6]],PlotList[[7]],PlotList[[8]],PlotList[[9]],nrow=3,ncol=3); print(Combine);
+dev.off()
+##############################################################################################################################################################################
+#Fig 2c
+##############################################################################################################################################################################
+
+
+
+
+
+##############################################################################################################################################################################
+#Fig 2d
+##############################################################################################################################################################################
+#Left
+Blood <- c("Pt22_PBMC","Pt20_PBMC","Pt10_PBMC","Pt23_PBMC","Pt19_PBMC","Pt11_PBMC","Pt13_PBMC","Pt05_PBMC","Pt18_PBMC","Pt02_PBMC","Pt14_PBMC","Pt21_PBMC");
+Adjacent <- c("Pt17_Ad","Pt01_Ad","Pt09_Ad","Pt20_Ad","Pt13_Ad","Pt19_Ad","Pt22_Ad","Pt18_Ad","Pt16_Ad","Pt05_Ad","Pt12_Ad","Pt15_Ad","Pt21_Ad","Pt14_Ad","Pt10_Ad");
+Primary <- c("Pt04_P","Pt14_P","Pt22_P","Pt12_P","Pt18_P","Pt02_P","Pt16_P","Pt13_P","Pt19_P","Pt23_P","Pt03_P","Pt09_P","Pt05_P","Pt20_P","Pt01_P","Pt15_P","Pt17_P","Pt10_P","Pt21_P");
+Ascites <- c("Pt02_As","Pt03_As","Pt04_As","Pt22_As","Pt13_As","Pt05_As","Pt11_As","Pt23_As","Pt19_As","Pt21_As"); Liver <- c("Pt18_Li","Pt17_Li","Pt12_Li","Pt20_Li","Pt09_Li","Pt14_Li","Pt10_Li");
+Sample <- c(paste(Blood,"PBMC",sep="_"),paste(Adjacent,"Ad",sep="_"),paste(Primary,"P",sep="_"),paste(Liver,"Li",sep="_"),paste(Ascites,"As",sep="_")); Category <- c("Rare","Small","Medium","Large","Hyperexpanded");
+PlotData <- clonalHomeostasis(CombindedTCR, cloneTypes = c(Rare = 0.005, Small = 0.02, Medium = 0.05, Large = 0.1, Hyperexpanded = 1), cloneCall = "gene+nt", exportTable = TRUE); colnames(PlotData) <- Category;
+PlotData <- PlotData[match(Sample,rownames(PlotData)),]; PlotData <- as.data.frame(t(PlotData)); PlotData$Category <- rownames(PlotData); StackBar <- melt(PlotData,id.vars='Category'); Color <- rev(c("#ffffcc","#fed976","#fd8d3c","#e31a1c","#800026"));
+StackBar$variable <- factor(StackBar$variable, levels=Sample); StackBar$Category <- factor(StackBar$Category, levels=rev(Category)); StackBar$value <- as.numeric(StackBar$value); Plot <- StackBarPlot(StackBar,Color,"none");
+
+pdf("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Original_01.pdf", width=10, height=5)
+Combine <- plot_grid(Plot,nrow=1,ncol=1); print(Combine);
+dev.off()
+
+#Right
+##############################################################################################################################################################################
+#Fig 2e
+##############################################################################################################################################################################
+#Input
+ExpTCR <- list(); Index <- setdiff(c(1:length(CombindedTCR)),which(names(CombindedTCR)=="Pt17_Ad_Ad")); for(i in 1:length(Index)) { ExpTCR[[i]] <- CombindedTCR[[Index[i]]]; }; names(ExpTCR) <- names(CombindedTCR)[Index];
+THluster <- combineExpression(ExpTCR, THluster, cloneCall="gene+nt", groupBy = "sample", proportion = TRUE, cloneTypes=c(Rare = 0.005, Small = 0.02, Medium = 0.05, Large = 0.1, Hyperexpanded = 1));
+CD4THluster <- combineExpression(ExpTCR, CD4THluster, cloneCall="gene+nt", groupBy = "sample", proportion = TRUE, cloneTypes=c(Rare = 0.005, Small = 0.02, Medium = 0.05, Large = 0.1, Hyperexpanded = 1));
+CD8THluster <- combineExpression(ExpTCR, CD8THluster, cloneCall="gene+nt", groupBy = "sample", proportion = TRUE, cloneTypes=c(Rare = 0.005, Small = 0.02, Medium = 0.05, Large = 0.1, Hyperexpanded = 1));
+CloneType1 <- as.character(THluster[[]]$cloneType); CloneType1[which(is.na(CloneType1)==TRUE)] <- "Rare (0 < X <= 0.005)"; THluster <- AddMetaData(THluster,CloneType1,col.name="cloneType");
+CloneType2 <- as.character(CD4THluster[[]]$cloneType); CloneType2[which(is.na(CloneType2)==TRUE)] <- "Rare (0 < X <= 0.005)"; CD4THluster <- AddMetaData(CD4THluster,CloneType2,col.name="cloneType");
+CloneType3 <- as.character(CD8THluster[[]]$cloneType); CloneType3[which(is.na(CloneType3)==TRUE)] <- "Rare (0 < X <= 0.005)"; CD8THluster <- AddMetaData(CD8THluster,CloneType3,col.name="cloneType");
+
+#Left
+Order <- c("Hyperexpanded (0.1 < X <= 1)","Large (0.05 < X <= 0.1)","Medium (0.02 < X <= 0.05)","Small (0.005 < X <= 0.02)","Rare (0 < X <= 0.005)"); Color <- c("#ffffcc","#fed976","#fd8d3c","#e31a1c","#800026");
+Idents(THluster) <- "cloneType"; Idents(THluster) <- factor(Idents(THluster), levels=rev(Order)); 
+Plot01 <- DimPlot(object=THluster, reduction="umap", pt.size=1, label=F, label.size=4, order=TRUE, raster=FALSE) + scale_color_manual(values = Color) +
+       theme_void() + theme(axis.title.x = element_blank(), axis.title.y = element_blank(), axis.text.x = element_blank(), axis.text.y = element_blank(), legend.position="none");
+Idents(CD4THluster) <- "cloneType"; Idents(CD4THluster) <- factor(Idents(CD4THluster), levels=rev(Order));
+Plot02 <- DimPlot(object=CD4THluster, reduction="umap", pt.size=1, label=F, label.size=4, order=TRUE, raster=FALSE) + scale_color_manual(values = Color) +
+       theme_void() + theme(axis.title.x = element_blank(), axis.title.y = element_blank(), axis.text.x = element_blank(), axis.text.y = element_blank(), legend.position="none");
+Idents(CD8THluster) <- "cloneType"; Idents(CD8THluster) <- factor(Idents(CD8THluster), levels=rev(Order));
+Plot03 <- DimPlot(object=CD8THluster, reduction="umap", pt.size=1, label=F, label.size=4, order=TRUE, raster=FALSE) + scale_color_manual(values = Color) +
+       theme_void() + theme(axis.title.x = element_blank(), axis.title.y = element_blank(), axis.text.x = element_blank(), axis.text.y = element_blank(), legend.position="none");
+tiff("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Original_01.tif", res=300, width=6000, height=2000)
+Combine <- plot_grid(Plot01,Plot02,Plot03,nrow=1,ncol=3); print(Combine);
+dev.off()
+
+#Right
+Order <- c("Hyperexpanded (0.1 < X <= 1)","Large (0.05 < X <= 0.1)","Medium (0.02 < X <= 0.05)","Rare (0 < X <= 0.005)","Small (0.005 < X <= 0.02)"); Color <- c("#ffffcc","#fed976","#fd8d3c","#e31a1c","#800026");
+PlotTable01 <- occupiedscRepertoire(THluster, x.axis = "CellCategory", exportTable = TRUE); colnames(PlotTable01) <- c("variable","Category","value"); PlotTable01$Category <- factor(PlotTable01$Category, levels=Order);  
+PlotTable02 <- occupiedscRepertoire(CD4THluster, x.axis = "seurat_clusters", exportTable = TRUE); colnames(PlotTable02) <- c("variable","Category","value"); PlotTable02$Category <- factor(PlotTable02$Category, levels=Order[c(2,3,4,5)]); 
+PlotTable03 <- occupiedscRepertoire(CD8THluster, x.axis = "seurat_clusters", exportTable = TRUE); colnames(PlotTable03) <- c("variable","Category","value"); PlotTable03$Category <- factor(PlotTable03$Category, levels=Order); 
+PlotTable02$variable <- paste("C",as.character(PlotTable02$variable),sep="."); PlotTable03$variable <- paste("C",as.character(PlotTable03$variable),sep="."); Color <- rev(c("#ffffcc","#fed976","#fd8d3c","#e31a1c","#800026"));
+
+Plot01 <- BarStackPlot(PlotTable01,Color,"none"); Plot02 <- BarStackPlot(PlotTable02,Color[c(2,3,4,5)],"none"); Plot03 <- BarStackPlot(PlotTable03,Color,"none");
+pdf("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Original_01.pdf", width=12, height=4)
+Combine <- plot_grid(Plot01,Plot02,Plot03,nrow=1,ncol=3); print(Combine);
+dev.off()
+##############################################################################################################################################################################
+#Fig 2f
+##############################################################################################################################################################################
+#Input
+ClonoInfo <- as.data.frame(matrix(NA,nrow=0,ncol=15)); for(i in 1:length(CombindedTCR)) { ClonoInfo <- rbind(ClonoInfo,CombindedTCR[[i]]) };
+Pattern <- as.data.frame(table(CombindedGLIPH$Pattern)); Pattern <- Pattern[order(Pattern$Freq, decreasing=T),]; Pattern$Length <- nchar(as.character(Pattern$Var1));
+GlobalPattern <- Pattern[which(Pattern$Length>=6),][-1,]; Clone <- as.data.frame(table(CombindedGLIPH$Clone)); Clone <- Clone[order(Clone$Freq,decreasing=T),];
+
+GlobalFreq <- matrix(0,nrow=nrow(GlobalPattern),ncol=2); for(i in 1:nrow(GlobalPattern))
+{ 
+  Clone <- unique(as.character(CombindedGLIPH$Clone)[which(CombindedGLIPH$Pattern==as.character(GlobalPattern$Var1)[i])]); GlobalFreq[i,1] <- length(Clone);
+  Cell <- character(); for(j in 1:length(Clone)) { Cell <- c(Cell,as.character(ClonoInfo$barcode)[which(ClonoInfo$CTstrict==Clone[j])]) }; GlobalFreq[i,2] <- length(unique(Cell));
+}; rownames(GlobalFreq) <- GlobalPattern$Var1; colnames(GlobalFreq) <- c("ClonNumber","CellNumber");GlobalFreq <- as.data.frame(GlobalFreq); GlobalFreq$Length <- nchar(rownames(GlobalFreq));
+SelectPattern <- rownames(GlobalFreq)[c(1:50)]#rownames(GlobalFreq)[which(GlobalFreq$CellNumber>=33)];
+
+G01 <- c("SSTG%GY","ARDG%ETYEQ","SSLGT%YEQ","SSYQG%TEA","SSL%TDTQ","SS%TTNTEA","SS%SGRDEQ","T%TGDSNQPQ","%GTGDSNQPQ","SSQ%TGGYNEQ","SS%GTGGYNEQ","SSLG%QETQ","SSSGT%NQPQ","SSL%ETQ");
+G02 <- c("SSETGG%YEQ","SSL%RETQ","SS%VNEQ","SSSV%EQ","SS%GGGNQPQ","SSY%GGNQPQ","SSYGG%NQPQ","SSLAG%TDTQ","%RTSGYNEQ","SSE%GATNYGY","SS%PNSPL","SSFA%SGYNEQ","SSP%GNTI","SSL%GGTDTQ","S%RRLAGGETQ","SSLA%GTDTQ","SSLAGG%DTQ","SRG%YNEQ","SSQD%ETQ","ST%GAYGY");
+G03 <- c("SSLG%GNTEA","SS%GQMNTEA","SSL%QGASYEQ","SSLGQGA%YEQ","SSLGQG%SYEQ"); G04 <- c("SSQ%AGEQ","S%QGAGEQ","VE%PDRSSYNEQ","SSPGLAG%YEQ","SS%QGTGNTI","S%DTDTQ","SS%TDTQ","SSSGQGL%TQ","ARDQVAGR%ETQ","S%TGDSNQPQ","SSS%LAGGTDTQ")
+G05 <- c("SS%GYEQ","SSSRLAG%TDTQ"); G06 <- c("SRTG%SYNEQ","SSLLG%NTEA","SSLAG%PYEQ","SS%GEL","SSLD%GEL"); G07 <- c("SS%DGMNTEA","SSE%GMNTEA","SSED%MNTEA","SSRTSA%GEL");
+G08 <- c("SS%GQGYEQ","SSF%GEQ","SSFG%EQ","SS%INEQ","SSL%GSTDTQ","SS%AGSTDTQ","S%LAGSTDTQ","SSLA%STDTQ","SSLAGS%DTQ","SS%GGEQ","SS%GETQ","SSLVGQS%EQ");
+G09 <- c("VG%GGTNEKL","AR%GRDNSPL","SSE%GSSTDTQ","WSV%GGETQ","SSFGT%NTEA","SSVER%STDTQ","SS%QGYTEA","SS%GTANTEA","SSSGLAG%NEQ","SS%GLAGNNEQ");
+G10 <- c("SSLGQ%YEQ"); SelectMotif <- c(G01,G02,G03,G04,G05,G06,G07,G08,rev(G09),G10); SelectMotif <- setdiff(SelectMotif,setdiff(SelectMotif,intersect(SelectMotif,SelectPattern)));
+Origin <- as.character(CombindedGLIPH$Tissue); Origin <- str_replace(Origin,"PBMC","Blood"); Origin <- str_replace(Origin,"PB","Blood"); Origin <- str_replace(Origin,"Ad","Adjacent");
+Origin <- str_replace(Origin,"P","Primary"); Origin <- str_replace(Origin,"As","Ascites"); Origin <- str_replace(Origin,"Li","Liver"); Origin <- str_replace(Origin,"Ov","Ovarian"); CombindedGLIPH$Origin <- Origin;
+
+#Top
+BarData <- as.data.frame(t(MotifTissue$Info.Num)); BarData$Category <- rownames(BarData); PlotData <- melt(BarData, id.vars='Category'); Color <- c("#bebada","#ffffb3","#fdb462","#80b1d3","#fb8072");
+PlotData$Category <- factor(PlotData$Category, levels=SelectTissue); PlotData$variable <- factor(PlotData$variable, levels=SelectMotif); PlotData$value <- as.numeric(PlotData$value);
+pdf("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Lineage_01.pdf", width=15, height=3)
+ggplot(data=PlotData, aes(variable,value,fill=Category)) + geom_bar(stat="identity", position="stack",color="black", width=0.8, size=0.25) + scale_fill_manual(values=Color) + #coord_flip() +
+ theme(panel.background=element_rect(fill="white",colour="white",size=0), axis.line=element_line(colour="black",size=0.25), axis.title=element_blank(), legend.position="none"); #axis.text=element_blank(),
+dev.off()
+
+#Middle
+PatternTissue <- data.frame(Motif=CombindedGLIPH$Pattern,Infor=CombindedGLIPH$Origin,Clone=CombindedGLIPH$Clone,Cell=CombindedGLIPH$Cell); SelectTissue <- c("Ascites","Blood","Adjacent","Primary","Liver");
+MotifTissue <- GLIPHspecific(PatternTissue,SelectMotif,SelectTissue); Tissue.Roe <- MotifTissue[[3]]; colnames(Tissue.Roe) <- SelectTissue; Tissue.Roe <- Tissue.Roe[match(SelectMotif,rownames(Tissue.Roe)),];
+myBreaks <- seq(0,4,by=0.04); Color <- c("#a50026","#d73027","#f46d43","#fdae61","#fee090","#ffffbf","#e0f3f8","#74add1","#4575b4");  myColor <- colorRampPalette(rev(Color))(length(myBreaks));
+pdf("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Lineage_01.pdf", width=15, height=3)
+pheatmap(t(Tissue.Roe), scale="none", color=myColor, breaks=myBreaks, cluster_rows=F, cluster_col=F, show_colnames=T, show_rownames=T, cellwidth=12, cellheight=12, angle_col=45,
+         clustering_distance_rows="euclidean", clustering_distance_cols="euclidean", clustering_method="ward.D", legend=T, border_color = "white");
+dev.off()
+
+#Bottom
+GLIPHinfo <- CombindedGLIPH[which(is.na(match(CombindedGLIPH$Pattern,SelectMotif))==F),]; SelectClus <- c("CD8T_C01","CD8T_C02","CD8T_C04","CD8T_C05","CD8T_C06","CD4T_C05","ProlifT_All","MAIT_All","NKT_All"); 
+MotifCluster <- matrix(0,nrow=length(SelectMotif),ncol=(length(SelectClus)+1)); rownames(MotifCluster) <- SelectMotif; colnames(MotifCluster) <- c(SelectClus,"Others"); CellList <- list();
+for(i in 1:length(SelectMotif)) { CellList[[i]] <- as.character(GLIPHinfo$Cell[which(GLIPHinfo$Pattern==SelectMotif[i])]) }; names(CellList) <- SelectMotif;
+for(i in 1:length(SelectMotif))
+{
+  Meta <- data.frame(Cell=CellList[[i]],Clus=as.character(Original.OView03[[]]$CellCluster[match(CellList[[i]],rownames(Original.OView03[[]]))])); Meta <- Meta[which(is.na(Meta$Clus)==F),];
+  for(j in 1:length(SelectClus)) { MotifCluster[i,j] <- length(which(Meta$Clus==SelectClus[j])); }; MotifCluster[i,(length(SelectClus)+1)] <- length(CellList[[i]]) - sum(MotifCluster[i,c(1:length(SelectClus))])
+}; Color <- c("#8dd3c7","#ffffb3","#bebada","#fb8072","#80b1d3","#fdb462","#fccde5","#bc80bd","#b3de69","white");
+PlotData <- as.data.frame(t(MotifCluster)); PlotData$Category <- rownames(PlotData); BarData <- melt(PlotData, id.vars='Category'); BarData$Category <- factor(BarData$Category, levels=rev(c(SelectClus,"Others")));
+BarData$value <- as.numeric(BarData$value); BarData$variable <- factor(BarData$variable, levels=SelectMotif); BarObjt <- StackBarPlot(BarData, rev(Color), "none");
+pdf("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Original_01.pdf", width=15, height=3.5)
+Combine <- plot_grid(BarObjt, nrow=1,ncol=1); print(Combine);
+dev.off()
+##############################################################################################################################################################################
+#Fig 2g
+##############################################################################################################################################################################
+Pattern1 <- c("Pt13","Pt19","Pt21","Pt22","Pt05"); Pattern2 <- c("Pt02","Pt23"); Pattern3 <- c("Pt03","Pt04"); Pattern4 <- c("Pt11"); Pattern5 <- c("Pt10","Pt14","Pt18","Pt20");
+Pattern6 <- c("Pt09","Pt12","Pt17"); Pattern7 <- c("Pt01","Pt15","Pt16");
+
+#Left
+PtAs_Pr_List <- c(Pattern1,Pattern2,Pattern3); PtAs_Pr_Data <- CellClone2D(PtAs_Pr_List, c("P","As")); PtAs_Pr_Info <- InfoClone2D(PtAs_Pr_Data); PtAs_Pr_Clone <- ExpaClone2D(PtAs_Pr_Info);
+PtAs_Pr_Plot <- Scatterplot(PtAs_Pr_Clone,c("Primary","Ascites"),c("Primary vs Ascites"),"right",c("X.Specific","X.Expanded","Shared","Y.Expanded","Y.Specific"),c('#fccde5','#fb8072','#d9d9d9','#33a02c','#ccebc5'))
+PtAs_Pr_Clus <- ClusClone2D(TCRannotation,PtAs_Pr_Clone); PtAs_Pr_ClusPlot <- Scatterplot(PtAs_Pr_Clus,c("Primary","Ascites"),c("CD8T_c06 vs Other T"),"right",c("Exhaust","Other"),c("#fb8072","#d9d9d9"))
+PtLi_Pr_List <- c(Pattern5,Pattern6); PtLi_Pr_Data <- CellClone2D(PtLi_Pr_List, c("P","Li")); PtLi_Pr_Info <- InfoClone2D(PtLi_Pr_Data); PtLi_Pr_Clone <- ExpaClone2D(PtLi_Pr_Info);
+PtLi_Pr_Plot <- Scatterplot(PtLi_Pr_Clone,c("Primary","Liver"),c("Primary vs Liver"),"right",c("X.Specific","X.Expanded","Shared","Y.Expanded","Y.Specific"),c('#fccde5','#fb8072','#d9d9d9','#33a02c','#ccebc5'))
+PtLi_Pr_Clus <- ClusClone2D(TCRannotation,PtLi_Pr_Clone); PtLi_Pr_ClusPlot <- Scatterplot(PtLi_Pr_Clus,c("Primary","Liver"),c("CD8T_c06 vs Other T"),"right",c("Exhaust","Other"),c("#fb8072","#d9d9d9"))
+
+pdf("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Original_01.pdf", width=10, height=5)
+Combine <- plot_grid(PtAs_Pr_Plot,PtLi_Pr_Plot,nrow=1,ncol=2); print(Combine);
+dev.off()
+
+#Right
+ClonType <- c("X.Specific","X.Expanded","Shared","Y.Expanded","Y.Specific");
+CellType <- c("CD4T_C01","CD4T_C02","CD4T_C03","CD4T_C04","CD4T_C05","CD4T_C06","CD8T_C01","CD8T_C02","CD8T_C03","CD8T_C04","CD8T_C05","CD8T_C06","CD8T_C07","NKT_All","MAIT_All","gdT_All","ProlifT_All");
+CombAnno <- list(); for(i in 1:length(CombClone))
+{
+  CloneAnnotation <- matrix(0,nrow=length(CellType),ncol=length(ClonType)); rownames(CloneAnnotation) <- CellType; colnames(CloneAnnotation) <- ClonType;
+  for(j in 1:length(ClonType))
+  {
+    SelectClone <- as.character(unique(CombClone[[i]]$Clone[which(CombClone[[i]]$Type2==ClonType[j])])); SelectMatrix <- TCRannotation[which(is.na(match(TCRannotation$TCR,SelectClone))==F),];
+    for(k in 1:length(CellType)) { CloneAnnotation[k,j] <- length(which(SelectMatrix$Clus==CellType[k])); }
+  }; CombAnno[[i]] <- CloneAnnotation;
+}; names(CombAnno) <- names(CombClone);
+
+PlotObjt <- list(); SelectType <- c("CD8T_C01","CD8T_C02","CD8T_C04","CD8T_C05","CD8T_C06","CD4T_C05","ProlifT_All","MAIT_All","NKT_All");
+Color <- c("#8dd3c7","#ffffb3","#bebada","#fb8072","#80b1d3","#fdb462","#fccde5","#bc80bd","#b3de69","#d9d9d9");
+
+for(i in 1:length(CombAnno))
+{
+  SelectMatrix <- CombAnno[[i]][match(SelectType,rownames(CombAnno[[i]])),]; OtherMatrix <- CombAnno[[i]][match(setdiff(rownames(CombAnno[[i]]),SelectType),rownames(CombAnno[[i]])),];
+  OtherValue <- data.frame("X.Specific"=sum(OtherMatrix[,1]),"X.Expanded"=sum(OtherMatrix[,2]),"Shared"=sum(OtherMatrix[,3]),"Y.Expanded"=sum(OtherMatrix[,4]),"Y.Specific"=sum(OtherMatrix[,5]));
+  PlotData <- rbind(SelectMatrix,OtherValue); rownames(PlotData) <- c(SelectType,"OtherT"); PlotData$Category <- rownames(PlotData); StackBar <- melt(PlotData,id.vars='Category');
+  StackBar$variable <- factor(StackBar$variable, levels=ClonType); StackBar$Category <- factor(StackBar$Category, levels=rownames(PlotData)); StackBar$value <- as.numeric(StackBar$value);
+  PlotObjt[[i]] <- StackBarPlot(StackBar,Color,"right",names(CombAnno)[i]);
+}
+
+pdf("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Original_01.pdf", width=16, height=8)
+Combine <- plot_grid(PlotObjt[[1]],PlotObjt[[2]],PlotObjt[[3]],PlotObjt[[4]],PlotObjt[[5]],PlotObjt[[6]],PlotObjt[[7]],PlotObjt[[8]],nrow=2,ncol=4); print(Combine);
+dev.off()
+##############################################################################################################################################################################
+#Fig 2h
+##############################################################################################################################################################################
+#Left
+Patient <- unique(TCRannotation$Patient); Cluster <- unique(TCRannotation$Clus); ExpaScore <- matrix(0,nrow=length(Patient),ncol=length(Cluster)); rownames(ExpaScore) <- Patient; colnames(ExpaScore) <- Cluster;
+TCRannotation <- TCRannotation[which(is.na(match(TCRannotation$Tissue,c("PBMC","Ad","P","As","Li")))==F),];
+for(i in 1:length(Patient))
+{
+  for(j in 1:length(Cluster))
+  {
+    CloneInfo <- as.data.frame(table(TCRannotation$TCR[which(TCRannotation$Patient==Patient[i]&TCRannotation$Clus==Cluster[j])])); CloneFreq <- as.numeric(CloneInfo$Freq);
+    ExpaScore[i,j] <- 1 - (diversity(CloneFreq, index = "shannon", base=2)/log2(length(CloneFreq)));
+  }
+}
+Value <- numeric(); Class <- character(); Patient <- character();
+for(j in 1:ncol(ExpaScore)) { Value <- c(Value, ExpaScore[,j]); Class <- c(Class, rep(colnames(ExpaScore)[j],nrow(ExpaScore))); Patient <- c(Patient,rownames(ExpaScore)); };
+ExpaMatrix <- data.frame(Value=Value,Class=Class,Category=Patient); ExpaMatrix <- ExpaMatrix[which(ExpaMatrix$Value!="NaN"),];
+ExpaMatrix$Category[which(is.na(match(ExpaMatrix$Category,PTwithAs))==F)] <- "As"; ExpaMatrix$Category[which(is.na(match(ExpaMatrix$Category,PTwithLi))==F)] <- "Li";
+ExpaSummary <- DataSummary(ExpaMatrix, varname="Value", groupnames=c("Category", "Class")); ExpaMatrix$Category <- factor(ExpaMatrix$Category, levels=c("As","Li"));
+ExpaMatrix <- ExpaMatrix[which(is.na(match(ExpaMatrix$Class,c("CD8T_C01","CD8T_C02","CD8T_C04","CD8T_C06")))==F),]; ExpaMatrix$Category <- factor(ExpaMatrix$Category, levels=c("As","Li"));
+
+pdf("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Original_01.pdf", width=6, height=6)
+beanplot(Value ~Category*Class, ExpaMatrix, col = list("#fc8d62","#66c2a5"), side = "both",xlab ="Class",ylab ="value")
+dev.off()
+
+#Right
+SelectClus <- c("CD8T_C05","CD8T_C02","CD8T_C01","CD8T_C04","ProlifT_All","CD8T_C06"); Cell <- rownames(TCRannotation)[which(is.na(match(TCRannotation$Clus,SelectClus))==F)]; Objt <- subset(Original.OView03, cells=Cell);
+Markers <- c("TCF7","PRF1","NKG7","GNLY","GZMB","GZMH","GZMA","GZMK","CD27","DUSP2","CXCR4","TIGIT","CD96","LAG3","NR4A2","NR4A1","BATF","TOX","IFNG","PDCD1","CD28",
+             "TNF","IRF4","CD38","TNFRSF9","CTLA4","HAVCR2","ENTPD1","CD101"); Idents(Objt) <- "CellCluster"; PlotObjt <- DotPlot(object = Objt, features = rev(Markers));
+PlotData <- PlotObjt$data; PlotData$id <- factor(PlotData$id, levels=SelectClus);
+Plot01 <- ggplot(PlotData, aes(x = features.plot,y = id)) + geom_point(aes(fill = avg.exp.scaled,size =pct.exp),color='white',shape=21) +
+  scale_fill_gradientn(colours=c('#f7fcfd','#f7fcfd','#e0ecf4','#bfd3e6','#9ebcda','#8c96c6','#8c6bb1','#88419d','#810f7c','#4d004b')) +
+  scale_size(range = c(0,7), limits = c(0,100), breaks = c(0,20,40,60,80,100)) + coord_flip() +
+  theme(panel.grid.major = element_line(colour = "grey90",size=0.2), panel.grid.minor = element_blank(), axis.title.x=element_blank(), axis.title.y=element_blank(),
+        panel.background = element_blank(), axis.line = element_line(colour = "black"), axis.text.x=element_text(angle = 45,vjust = 1,hjust = 1),legend.position="none");
+pdf("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Feature_01.pdf", width=2.5, height=7)
+Combine <- plot_grid(Plot01,nrow=1,ncol=1); print(Combine);
+dev.off()
+##############################################################################################################################################################################
