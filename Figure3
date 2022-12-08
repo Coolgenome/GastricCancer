@@ -1,0 +1,103 @@
+#Object
+##############################################################################################################################################################################
+Original.List <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_List.RDS"); Original.Merge <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_Merge.RDS");
+Original.OView01<- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_OverView01.RDS"); Original.OView02<- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_OverView02.RDS"); 
+Original.OView03<- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_OverView03.RDS");
+THluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_ATHluster01.RDS"); MHluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_MyeloidHluster01.RDS");
+NHluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_NKHluster03.RDS"); BHluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_IntBHluster04_RMIG.RDS");
+ThrHluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_ThrHluster04.RDS"); EryHluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_EryHluster02.RDS"); 
+EndHluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_EndHluster03.RDS"); FibHluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_FHluster03.RDS"); 
+CancerCluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_HlusterCancer02.RDS"); NormalHluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_HlusterNormal04.RDS");
+ImmHluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_ImmuneHluster01.RDS"); EpiCluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_EpiCluster04.RDS");
+BloHluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_BloHluster01.RDS"); StrHluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_StrHluster01.RDS");
+NormalHluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_HlusterNormal05.RDS"); CancerCluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_ClusterCancer02.RDS");
+##############################################################################################################################################################################
+
+#Fig 3a
+##############################################################################################################################################################################
+#Left
+NormalHluster <- AddInfo(NormalHluster); CancerCluster <- AddInfo(CancerCluster);
+Color <- c("#fdbf6f","#cab2d6","#6a3d9a","#1f78b4","#ffff99","#e31a1c","#b2df8a","#a6cee3","#fb9a99","#b15928","#33a02c","#ff7f00");
+Cluster <- c("Quiet_Foveolar","Parietal","MN/BG","Chief","Endocrine","Tuft","Quiet_KRT7+","Goblet","Enterocyte","Hepatocyte","Prolif_KRT7+","Prolif_Foveolar");
+HPpositive <- rownames(NormalHluster[[]])[which(NormalHluster[[]]$HPinfec=="Positive")]; HPnegative <- rownames(NormalHluster[[]])[which(NormalHluster[[]]$HPinfec=="Negative")];
+
+pdf("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Lineage_01.pdf", width=10, height=10)
+Idents(NormalHluster) <- "CellType"; Idents(NormalHluster) <- factor(Idents(NormalHluster), levels=Cluster);
+Plot01 <- DimPlot(object=NormalHluster, reduction="umap", cols=Color, pt.size=1.0, label=F) + xlim(-8,8) + theme_void() + #ylim(-15,17.5) + 
+            theme(legend.position="none",axis.title.x = element_blank(), axis.title.y = element_blank(), axis.text.x = element_blank(), axis.text.y = element_blank());
+Combine <- plot_grid(Plot01,nrow=1,ncol=1); print(Combine);
+dev.off()
+
+#Middle
+Neck <- c("MUC6"); Chief <- c("LTF","PGC","LIPF","PGA3","PGA4","PGA5"); Prolif <- c("MKI67","TOP2A"); Foveolar <- c("MUC5AC","TFF2","GKN1","GKN2"); KRT7 <- c("HMGA1","NME1","KRT7","FXYD5","OLFM4");
+Enterocyte <- c("FABP1","APOA4","ALPI","RBP2","ALDOB","APOA1","FABP2","KRT20","CDH17"); Goblet <- c("TFF3","MUC2","ITLN1","SPINK4","FCGBP","REG4"); Parietal <- c("ATP4A","ATP4B","KCNE2");
+Tuft <- c("SH2D6","LRMP","TRPM5","ALOX5","HCK","FYB1"); Endocrine <- c("CHGA","CHGB","SNCA","PEG10","ASCL1"); Hepatocyte <- c("ALB","APOC1","APOA2","ADH1B","FGB");
+CellType <- c("Tuft","Endocrine","Prolif_Foveolar","Quiet_Foveolar","Quiet_KRT7+","Enterocyte","Prolif_KRT7+","Goblet","MN/BG","Chief","Parietal");
+Idents(NormalHluster) <- "CellType"; SubObjt <- subset(NormalHluster,idents=CellType); PlotGene1 <- c(Tuft,Endocrine,Prolif,Foveolar,KRT7,Enterocyte,Goblet,Neck,Chief,Parietal);
+PlotObjt <- DotPlot(object = SubObjt, features = PlotGene1); PlotData <- PlotObjt$data; PlotData$id <- factor(PlotData$id, levels=CellType);
+
+Plot01 <- ggplot(PlotData, aes(x = features.plot,y = id)) + geom_point(aes(fill = avg.exp.scaled,size =pct.exp),color='white',shape=21) +
+  scale_fill_gradientn(colours=c('#f7fcfd','#f7fcfd','#e0ecf4','#bfd3e6','#9ebcda','#8c96c6','#8c6bb1','#88419d','#810f7c','#4d004b')) +
+  scale_size(range = c(0,9), limits = c(0,100), breaks = c(0,20,40,60,80,100)) + 
+       theme(panel.grid.major = element_line(colour = "grey90",size=0.2), panel.grid.minor = element_blank(), axis.title.x=element_blank(), axis.title.y=element_blank(),
+             panel.background = element_blank(), axis.line = element_line(colour = "black"), axis.text.x=element_text(angle = 45,vjust = 1,hjust = 1),legend.position="none");
+pdf("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Feature_01.pdf", width=11, height=4)
+Combine <- plot_grid(Plot01,nrow=1,ncol=1); print(Combine);
+dev.off()
+
+#Right
+Cluster <- c("Tuft","Endocrine","Prolif_Foveolar","Quiet_Foveolar","Quiet_KRT7+","Enterocyte","Prolif_KRT7+","Goblet","MN/BG","Chief","Parietal"); HPinfection <- c("Positive","Negative");
+Distribution <- matrix(0,nrow=length(HPinfection), ncol=length(Cluster)+1); colnames(Distribution) <- c("HPinfection",Cluster); Distribution[,1] <- HPinfection; Color <- c("#bebada","#8dd3c7");
+for(i in 1:length(HPinfection)) { for(j in 1:length(Cluster)) { Distribution[i,j+1] <- length(which(NormalHluster[[]]$HPinfec==HPinfection[i]&NormalHluster[[]]$CellType==Cluster[j])) } };
+Distribution <- as.data.frame(Distribution); PlotData <- melt(Distribution,id.vars='HPinfection'); PlotData$HPinfection <- factor(PlotData$HPinfection, levels=rev(HPinfection));
+PlotData$variable <- factor(PlotData$variable, levels=Cluster); PlotData$value <- as.numeric(PlotData$value);
+
+Plot01 <- ggplot(data=PlotData,aes(variable,value,fill=HPinfection)) + geom_bar(stat="identity", position="fill",color="black", width=0.8,size=0.25) + scale_fill_manual(values=rev(Color))+coord_flip()+
+           theme(axis.title=element_blank(), axis.text=element_blank(), panel.background=element_blank(),panel.grid.major=element_blank(), panel.grid.minor=element_blank(), legend.position="none")
+pdf("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Feature_01.pdf", width=2, height=3)
+Combine <- plot_grid(Plot01,nrow=1,ncol=1); print(Combine);
+dev.off()
+##############################################################################################################################################################################
+
+#Fig 3b
+##############################################################################################################################################################################
+#DimPlot for Malignant Cells
+Patient <- c("Pt04","Pt05","Pt09","Pt10","Pt11","Pt12","Pt13","Pt14","Pt15","Pt16","Pt17","Pt19","Pt20","Pt21","Pt22","Pt23"); Idents(CancerCluster) <- "Patient"; Objt <- subset(CancerCluster, idents=Patient);
+Parm <- c(30,50,0.5,0.3); CRDS <- "/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_CancerClusterForPlot.RDS"; Cluster.Seurat_1(Objt, CRDS, Parm);
+Objt <- RunUMAP(Objt, graph = "SNNGraph", n.neighbors = 50, min.dist=0.6); saveRDS(Objt,"/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_CancerClusterForPlot.RDS");
+
+Single01 <- DimPlot(object=Original.OView03, cols=ColorList[[1 ]], reduction="umap", pt.size=1, label=F, label.size=6, raster=FALSE, cells=CellList[[1 ]]) + xlim(-21,20) + ylim(-15,17.5) + theme_void() +
+  theme(axis.title.x = element_blank(), axis.title.y = element_blank(), axis.text.x = element_blank(), axis.text.y = element_blank(), legend.position="none");
+
+Objt <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_CancerClusterForPlot.RDS");
+tiff("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Lineage_01.tif", res=300, width=5000, height=5000)
+Patient <- c("Pt04","Pt05","Pt09","Pt10","Pt11","Pt12","Pt13","Pt14","Pt15","Pt16","Pt17","Pt19","Pt20","Pt21","Pt22","Pt23"); Idents(Objt) <- "Patient"; Idents(Objt) <- factor(Idents(Objt), levels=Patient);
+Plot01 <- DimPlot(object=Objt, reduction="umap",pt.size=2, label=F) + theme_void() + theme(axis.title.x = element_blank(), axis.title.y = element_blank(), axis.text.x = element_blank(), axis.text.y = element_blank(),
+                                                                                           legend.position="none"); Combine <- plot_grid(Plot01,nrow=1,ncol=1); print(Combine);
+dev.off()
+tiff("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Lineage_01.tif", res=300, width=5000, height=5000)
+Tissue <- c("P","As","Li","Ov"); Idents(Objt) <- "Tissue"; Idents(Objt) <- factor(Idents(Objt), levels=Tissue); Color <- c("#80b1d3","#bebada","#fb8072","#ffffb3");
+Plot01 <- DimPlot(object=Objt, cols=Color, reduction="umap",pt.size=2, label=F, raster=FALSE) + theme_void() + theme(axis.title.x = element_blank(), axis.title.y = element_blank(), axis.text.x = element_blank(), axis.text.y = element_blank(),
+                                                                                                                     legend.position="none"); Combine <- plot_grid(Plot01,nrow=1,ncol=1); print(Combine);
+dev.off()
+##############################################################################################################################################################################
+
+#Fig 3c
+##############################################################################################################################################################################
+
+##############################################################################################################################################################################
+
+#Fig 3d
+##############################################################################################################################################################################
+
+##############################################################################################################################################################################
+
+#Fig 3e
+##############################################################################################################################################################################
+
+##############################################################################################################################################################################
+
+#Fig 3g
+##############################################################################################################################################################################
+
+##############################################################################################################################################################################
