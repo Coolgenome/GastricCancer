@@ -1,0 +1,234 @@
+#Object
+##############################################################################################################################################################################
+load("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/CellFraction.RDA");
+load("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Cohort4_TMEdeconvolution.RDA");
+load("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Cohort5_TMEdeconvolution.RDA");
+load("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Figure3_PatternValidation.RDA");
+##############################################################################################################################################################################
+#Function
+##############################################################################################################################################################################
+ExpClass = function(ClinExpr,PatternSymbol,Gene)
+{
+  Index <- which(PatternSymbol$Symbol==Gene); CohortGene <- PatternSymbol$Cohort[Index]; if(length(Index)>1) { if(length(unique(CohortGene))>1) { print(c(Index,Gene,CohortGene)); }; CohortGene  <- CohortGene[1]; }
+  Expr <- ClinExpr[,which(colnames(ClinExpr)==CohortGene)]; Med <- median(Expr); Class <- matrix(0,nrow=length(Expr),ncol=1); rownames(Class) <- rownames(ClinExpr); colnames(Class) <- "GPX4";
+  Class[which(Expr>=Med),1] <- "High"; Class[which(Expr<Med),1] <- "Low"; return(Class);
+}
+TmeClass = function(ClinExpr,TMEcomb,CellCluster)
+{
+  TMEcomb <- as.data.frame(TMEcomb); SelectTME <- TMEcomb[match(rownames(ClinExpr),TMEcomb$ID),match(CellCluster,colnames(TMEcomb))];
+  Class <- matrix(NA,nrow=nrow(SelectTME),ncol=ncol(SelectTME)); rownames(Class) <- rownames(ClinExpr); colnames(Class) <- CellCluster;
+  for(j in 1:ncol(SelectTME)) { Tmes <- SelectTME[,j]; Med <- median(Tmes); Class[which(Tmes>=Med),j] <- "High"; Class[which(Tmes<Med),j] <- "Low"; }; return(Class);
+}
+OneClass = function(ExpClass,TmeClass)
+{
+  OneClass <- matrix(NA,nrow=nrow(TmeClass),ncol=ncol(TmeClass)); rownames(OneClass) <- rownames(TmeClass); colnames(OneClass) <- colnames(TmeClass)
+  for(j in 1:ncol(TmeClass))
+  {
+    OneClass[intersect(which(ExpClass[,1]=="High"),which(TmeClass[,j]=="High")),j] <- "H_H";
+    OneClass[intersect(which(ExpClass[,1]=="High"),which(TmeClass[,j]=="Low" )),j] <- "H_L";
+    OneClass[intersect(which(ExpClass[,1]=="Low" ),which(TmeClass[,j]=="High")),j] <- "L_H";
+    OneClass[intersect(which(ExpClass[,1]=="Low" ),which(TmeClass[,j]=="Low" )),j] <- "L_L";
+  }; return(OneClass);
+}
+Survival1 = function(ClinExpr,CohortClass)
+{
+  SurvData <- list(); SurvObjt <- list(); SurvPval <- as.data.frame(matrix(0,nrow=0,ncol=4));
+  for(j in 1:ncol(CohortClass))
+  {
+    SurvData[[j]] <- data.frame(Sample=ClinExpr$Sample, Time=ClinExpr$Time, Status=ClinExpr$Status, Class=CohortClass[,j]);
+    SurvObjt[[j]] <- survfit(Surv(Time, Status) ~ Class, data = SurvData[[j]]); SurvPval <- rbind(SurvPval,surv_pvalue(SurvObjt[[j]], data=SurvData[[j]]));
+  }; rownames(SurvPval) <- colnames(CohortClass);
+  SurvivalResult <- list(); SurvivalResult[[1]] <- SurvData; SurvivalResult[[2]] <- SurvObjt; SurvivalResult[[3]] <- SurvPval; return(SurvivalResult);
+}
+Survival2 = function(ClinExpr,CohortClass)
+{
+  SurvData <- list(); SurvObjt <- list(); SurvPval <- as.data.frame(matrix(0,nrow=0,ncol=4));
+  for(j in 1:ncol(CohortClass))
+  {
+    SurvData[[j]] <- data.frame(Sample=ClinExpr$Sample, Time=ClinExpr$Time, Status=ClinExpr$Status, Class=CohortClass[,j]);
+    SurvData[[j]] <- SurvData[[j]][which(SurvData[[j]]$Class=="H_H"|SurvData[[j]]$Class=="L_L"),];
+    SurvObjt[[j]] <- survfit(Surv(Time, Status) ~ Class, data = SurvData[[j]]); SurvPval <- rbind(SurvPval,surv_pvalue(SurvObjt[[j]], data=SurvData[[j]]));
+  }; rownames(SurvPval) <- colnames(CohortClass);
+  SurvivalResult <- list(); SurvivalResult[[1]] <- SurvData; SurvivalResult[[2]] <- SurvObjt; SurvivalResult[[3]] <- SurvPval; return(SurvivalResult);
+}
+Survival3 = function(ClinExpr,CohortClass)
+{
+  SurvData <- list(); SurvObjt <- list(); SurvPval <- as.data.frame(matrix(0,nrow=0,ncol=4));
+  for(j in 1:ncol(CohortClass))
+  {
+    SelectClass <- CohortClass[,j]; SelectClass[which(SelectClass!="H_H")] <- "Low"; SelectClass[which(SelectClass=="H_H")] <- "High";
+    SurvData[[j]] <- data.frame(Sample=ClinExpr$Sample, Time=ClinExpr$Time, Status=ClinExpr$Status, Class=SelectClass);
+    SurvObjt[[j]] <- survfit(Surv(Time, Status) ~ Class, data = SurvData[[j]]); SurvPval <- rbind(SurvPval,surv_pvalue(SurvObjt[[j]], data=SurvData[[j]]));
+  }; rownames(SurvPval) <- colnames(CohortClass);
+  SurvivalResult <- list(); SurvivalResult[[1]] <- SurvData; SurvivalResult[[2]] <- SurvObjt; SurvivalResult[[3]] <- SurvPval; return(SurvivalResult);
+}
+Survival4 = function(ClinExpr,CohortClass)
+{
+  SurvData <- list(); SurvObjt <- list(); SurvPval <- as.data.frame(matrix(0,nrow=0,ncol=4));
+  for(j in 1:ncol(CohortClass))
+  {
+    SelectClass <- CohortClass[,j]; SelectClass[which(SelectClass!="L_L")] <- "High"; SelectClass[which(SelectClass=="L_L")] <- "Low";
+    SurvData[[j]] <- data.frame(Sample=ClinExpr$Sample, Time=ClinExpr$Time, Status=ClinExpr$Status, Class=SelectClass);
+    SurvObjt[[j]] <- survfit(Surv(Time, Status) ~ Class, data = SurvData[[j]]); SurvPval <- rbind(SurvPval,surv_pvalue(SurvObjt[[j]], data=SurvData[[j]]));
+  }; rownames(SurvPval) <- colnames(CohortClass);
+  SurvivalResult <- list(); SurvivalResult[[1]] <- SurvData; SurvivalResult[[2]] <- SurvObjt; SurvivalResult[[3]] <- SurvPval; return(SurvivalResult);
+}
+Survival5 = function(ClinExpr,CohortClass)
+{
+  SurvData <- list(); SurvObjt <- list(); SurvPval <- as.data.frame(matrix(0,nrow=0,ncol=4));
+  for(j in 1:ncol(CohortClass))
+  {
+    SelectClass <- CohortClass[,j]; SelectClass[which(SelectClass=="H_H"|SelectClass=="H_L")] <- "High"; SelectClass[which(SelectClass=="L_H"|SelectClass=="L_L")] <- "Low";
+    SurvData[[j]] <- data.frame(Sample=ClinExpr$Sample, Time=ClinExpr$Time, Status=ClinExpr$Status, Class=SelectClass);
+    SurvObjt[[j]] <- survfit(Surv(Time, Status) ~ Class, data = SurvData[[j]]); SurvPval <- rbind(SurvPval,surv_pvalue(SurvObjt[[j]], data=SurvData[[j]]));
+  }; rownames(SurvPval) <- colnames(CohortClass);
+  SurvivalResult <- list(); SurvivalResult[[1]] <- SurvData; SurvivalResult[[2]] <- SurvObjt; SurvivalResult[[3]] <- SurvPval; return(SurvivalResult);
+}
+Survival6 = function(ClinExpr,CohortClass)
+{
+  SurvData <- list(); SurvObjt <- list(); SurvPval <- as.data.frame(matrix(0,nrow=0,ncol=4));
+  for(j in 1:ncol(CohortClass))
+  {
+    SelectClass <- CohortClass[,j]; SelectClass[which(SelectClass=="H_H"|SelectClass=="L_H")] <- "High"; SelectClass[which(SelectClass=="H_L"|SelectClass=="L_L")] <- "Low";
+    SurvData[[j]] <- data.frame(Sample=ClinExpr$Sample, Time=ClinExpr$Time, Status=ClinExpr$Status, Class=SelectClass);
+    SurvObjt[[j]] <- survfit(Surv(Time, Status) ~ Class, data = SurvData[[j]]); SurvPval <- rbind(SurvPval,surv_pvalue(SurvObjt[[j]], data=SurvData[[j]]));
+  }; rownames(SurvPval) <- colnames(CohortClass);
+  SurvivalResult <- list(); SurvivalResult[[1]] <- SurvData; SurvivalResult[[2]] <- SurvObjt; SurvivalResult[[3]] <- SurvPval; return(SurvivalResult);
+}
+Survival7 = function(ClinExpr,CohortClass)
+{
+  SelectClass <- CohortClass[,1]; SurvData <- data.frame(Sample=ClinExpr$Sample, Time=ClinExpr$Time, Status=ClinExpr$Status, Class=SelectClass);
+  SurvObjt <- survfit(Surv(Time, Status) ~ Class, data = SurvData); SurvPval <- surv_pvalue(SurvObjt, data=SurvData);
+  SurvivalResult <- list(); SurvivalResult[[1]] <- SurvData; SurvivalResult[[2]] <- SurvObjt; SurvivalResult[[3]] <- SurvPval; return(SurvivalResult);
+}
+Survival8 = function(ClinExpr,CohortClass)
+{
+  SurvData <- list(); SurvObjt <- list(); SurvPval <- as.data.frame(matrix(0,nrow=0,ncol=4));
+  for(j in 1:ncol(CohortClass))
+  {
+    SurvData[[j]] <- data.frame(Sample=ClinExpr$Sample, Time=ClinExpr$Time, Status=ClinExpr$Status, Class=CohortClass[,j]);
+    SurvData[[j]] <- SurvData[[j]][which(SurvData[[j]]$Class=="H_H"|SurvData[[j]]$Class=="H_L"),];
+    SurvObjt[[j]] <- survfit(Surv(Time, Status) ~ Class, data = SurvData[[j]]); SurvPval <- rbind(SurvPval,surv_pvalue(SurvObjt[[j]], data=SurvData[[j]]));
+  }; rownames(SurvPval) <- colnames(CohortClass);
+  SurvivalResult <- list(); SurvivalResult[[1]] <- SurvData; SurvivalResult[[2]] <- SurvObjt; SurvivalResult[[3]] <- SurvPval; return(SurvivalResult);
+}
+Survival9 = function(ClinExpr,CohortClass)
+{
+  SurvData <- list(); SurvObjt <- list(); SurvPval <- as.data.frame(matrix(0,nrow=0,ncol=4));
+  for(j in 1:ncol(CohortClass))
+  {
+    SurvData[[j]] <- data.frame(Sample=ClinExpr$Sample, Time=ClinExpr$Time, Status=ClinExpr$Status, Class=CohortClass[,j]);
+    SurvData[[j]] <- SurvData[[j]][which(SurvData[[j]]$Class=="H_H"|SurvData[[j]]$Class=="L_H"),];
+    SurvObjt[[j]] <- survfit(Surv(Time, Status) ~ Class, data = SurvData[[j]]); SurvPval <- rbind(SurvPval,surv_pvalue(SurvObjt[[j]], data=SurvData[[j]]));
+  }; rownames(SurvPval) <- colnames(CohortClass);
+  SurvivalResult <- list(); SurvivalResult[[1]] <- SurvData; SurvivalResult[[2]] <- SurvObjt; SurvivalResult[[3]] <- SurvPval; return(SurvivalResult);
+}
+##############################################################################################################################################################################
+
+
+#Fig E11b
+##############################################################################################################################################################################
+CellFraction <- SampleCellFraction[[1]]; CellFraction <- CellFraction[,c(1:48)]; Ratio <- CellFraction*100; iMatrix <- cbind(Ratio,MeanExp);
+TissueType <- c("N","PRI","PC","LM"); TissueColor <- c("#fdb462","#80b1d3","#fb8072","#bebada"); #SelectSample <- rownames(iMatrix); #SelectSample <- unique(c(PairSample$NormalSample[Idx1],PairSample$CancerSample[Idx1])); 
+Ratio1<- iMatrix[match(SelectSample,rownames(iMatrix)),]; Type <- rownames(Ratio1); Type[grep("_P",Type)] <- "PRI"; Type[grep("_Ad",Type)] <- "N"; Type[grep("_As",Type)] <- "PC"; Type[grep("_Li",Type)] <- "LM"; 
+Ratio1 <- cbind(Ratio1, Type); Ratio1 <- as.data.frame(Ratio1); for(j in 1:(ncol(Ratio1)-1)) { Ratio1[,j] <- as.numeric(Ratio1[,j]); }; 
+SelectRatio1 <- Ratio1; SelectRatio1$Type <- factor(SelectRatio1$Type,levels=TissueType)
+SelectRatio2 <- Ratio1[c(grep("_P",rownames(Ratio1)),grep("_Li",rownames(Ratio1)),grep("_As",rownames(Ratio1))),]; SelectRatio2$Type <- factor(SelectRatio2$Type,levels=TissueType[c(2,3,4)])
+SelectRatio3 <- Ratio1[c(grep("_Li",rownames(Ratio1)),grep("_As",rownames(Ratio1))),]; SelectRatio3$Type <- factor(SelectRatio3$Type,levels=TissueType[c(3,4)]);
+SelectRatio4 <- Ratio1[c(grep("_P",rownames(Ratio1)),grep("_As",rownames(Ratio1))),]; SelectRatio4$Type <- factor(SelectRatio4$Type,levels=TissueType[c(2,3)]);
+SelectRatio5 <- Ratio1[c(grep("_P",rownames(Ratio1)),grep("_Li",rownames(Ratio1))),]; SelectRatio5$Type <- factor(SelectRatio5$Type,levels=TissueType[c(2,4)]);
+SelectRatio6 <- Ratio1[c(grep("_Ad",rownames(Ratio1)),grep("_P",rownames(Ratio1)),grep("_As",rownames(Ratio1))),]; SelectRatio6$Type <- factor(SelectRatio6$Type,levels=TissueType[c(1,2,3)]);
+SelectRatio7 <- Ratio1[c(grep("_Ad",rownames(Ratio1)),grep("_P",rownames(Ratio1)),grep("_Li",rownames(Ratio1))),]; SelectRatio7$Type <- factor(SelectRatio7$Type,levels=TissueType[c(1,2,4)]);
+
+PlotList1 <- list(); PlotList2 <- list(); PlotList3 <- list(); PlotList4 <- list(); PlotList5 <- list(); PlotList6 <- list(); PlotList7 <- list(); for(i in 1:ncol(Ratio1))
+{
+  print(i);
+  PlotList1[[i]] <- ggscatter(SelectRatio1, x = colnames(SelectRatio1)[i], y = "GPX4", color = "Type", palette = TissueColor, add = "reg.line", add.params = list(color = "gray", fill = "lightblue"),
+                              conf.int = TRUE, cor.coef = TRUE, cor.method = "spearman", xlab = colnames(SelectRatio1)[i], ylab = "GPX4",
+                              title = paste(colnames(SelectRatio1)[i]," in N+PRI+LM+PC", sep="")) + xscale("log2", .format = TRUE)#  +yscale("log2", .format = TRUE);
+  PlotList2[[i]] <- ggscatter(SelectRatio2, x = colnames(SelectRatio2)[i], y = "GPX4", color = "Type", palette = TissueColor[c(2,3,4)], add = "reg.line", add.params = list(color = "gray", fill = "lightblue"),
+                              conf.int = TRUE, cor.coef = TRUE, cor.method = "spearman", xlab = colnames(SelectRatio2)[i], ylab = "GPX4",
+                              title = paste(colnames(SelectRatio2)[i]," in PRI+LM+PC", sep="")) + xscale("log2", .format = TRUE)#  +yscale("log2", .format = TRUE);
+  PlotList3[[i]] <- ggscatter(SelectRatio3, x = colnames(SelectRatio3)[i], y = "GPX4", color = "Type", palette = TissueColor[c(3,4)], add = "reg.line", add.params = list(color = "gray", fill = "lightblue"),
+                              conf.int = TRUE, cor.coef = TRUE, cor.method = "spearman", xlab = colnames(SelectRatio3)[i], ylab = "GPX4",
+                              title = paste(colnames(SelectRatio3)[i]," in LM+PC", sep="")) + xscale("log2", .format = TRUE)#  +yscale("log2", .format = TRUE);
+  PlotList4[[i]] <- ggscatter(SelectRatio4, x = colnames(SelectRatio4)[i], y = "GPX4", color = "Type", palette = TissueColor[c(2,3)], add = "reg.line", add.params = list(color = "gray", fill = "lightblue"),
+                              conf.int = TRUE, cor.coef = TRUE, cor.method = "spearman", xlab = colnames(SelectRatio4)[i], ylab = "GPX4",
+                              title = paste(colnames(SelectRatio4)[i]," in PRI+PC", sep="")) + xscale("log2", .format = TRUE)#  +yscale("log2", .format = TRUE);
+  PlotList5[[i]] <- ggscatter(SelectRatio5, x = colnames(SelectRatio5)[i], y = "GPX4", color = "Type", palette = TissueColor[c(2,4)], add = "reg.line", add.params = list(color = "gray", fill = "lightblue"),
+                              conf.int = TRUE, cor.coef = TRUE, cor.method = "spearman", xlab = colnames(SelectRatio5)[i], ylab = "GPX4",
+                              title = paste(colnames(SelectRatio5)[i]," in PRI+LM", sep="")) + xscale("log2", .format = TRUE)#  +yscale("log2", .format = TRUE);
+  PlotList6[[i]] <- ggscatter(SelectRatio6, x = colnames(SelectRatio6)[i], y = "GPX4", color = "Type", palette = TissueColor[c(1,2,3)], add = "reg.line", add.params = list(color = "gray", fill = "lightblue"),
+                              conf.int = TRUE, cor.coef = TRUE, cor.method = "spearman", xlab = colnames(SelectRatio6)[i], ylab = "GPX4",
+                              title = paste(colnames(SelectRatio6)[i]," in N+PRI+PC", sep="")) + xscale("log2", .format = TRUE)#  +yscale("log2", .format = TRUE);
+  PlotList7[[i]] <- ggscatter(SelectRatio7, x = colnames(SelectRatio7)[i], y = "GPX4", color = "Type", palette = TissueColor[c(1,2,4)], add = "reg.line", add.params = list(color = "gray", fill = "lightblue"),
+                              conf.int = TRUE, cor.coef = TRUE, cor.method = "spearman", xlab = colnames(SelectRatio7)[i], ylab = "GPX4",
+                              title = paste(colnames(SelectRatio7)[i]," in N+PRI+LM", sep="")) + xscale("log2", .format = TRUE)# +yscale("log2", .format = TRUE);
+}
+##############################################################################################################################################################################
+#Plasma
+Test1 <- data.frame(X=SelectRatio1$Plasma,Y=SelectRatio1$GPX4,Type=SelectRatio1$Type); Test2 <- Test1; MinAdd <- min(Test1$X[which(Test1$X!=0)])*0.5; Test2$X <- Test2$X+MinAdd;
+PlotTest1 <- ggscatter(Test1, x = "X", y = "Y", color = "Type", palette = TissueColor, add = "reg.line", add.params = list(color = "gray", fill = "lightblue"), size=3.5,
+                       conf.int = TRUE, cor.coef = TRUE, cor.method = "spearman", xlab = "Plasma", ylab = "GPX4") + theme(legend.position = "none");
+PlotTest2 <- ggscatter(Test1, x = "X", y = "Y", color = "Type", palette = TissueColor, add = "reg.line", add.params = list(color = "gray", fill = "lightblue"), size=3.5,
+                       conf.int = TRUE, cor.coef = TRUE, cor.method = "spearman", xlab = "Plasma", ylab = "GPX4") + xscale("log10", .format = TRUE) + theme(legend.position = "none");
+PlotTest3 <- ggscatter(Test2, x = "X", y = "Y", color = "Type", palette = TissueColor, add = "reg.line", add.params = list(color = "gray", fill = "lightblue"), size=3.5,
+                       conf.int = TRUE, cor.coef = TRUE, cor.method = "spearman", xlab = "Plasma", ylab = "GPX4") + xscale("log10", .format = TRUE) + theme(legend.position = "none");
+pdf("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Lineage_01.pdf", width=15, height=5)
+Combine <- plot_grid(PlotTest1,PlotTest2,PlotTest3,nrow=1,ncol=3); print(Combine);
+dev.off()
+pdf("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Lineage_01.pdf", width=5, height=5)
+Combine <- plot_grid(PlotTest3,nrow=1,ncol=1); print(Combine);
+dev.off()
+
+#Macro_C01
+Test1 <- data.frame(X=SelectRatio1$Macro_C01,Y=SelectRatio1$GPX4,Type=SelectRatio1$Type); Test2 <- Test1; MinAdd <- min(Test1$X[which(Test1$X!=0)])*0.5; Test2$X <- Test2$X+MinAdd;
+PlotTest1 <- ggscatter(Test1, x = "X", y = "Y", color = "Type", palette = TissueColor, add = "reg.line", add.params = list(color = "gray", fill = "lightblue"), size=3.5,
+                       conf.int = TRUE, cor.coef = TRUE, cor.method = "spearman", xlab = "Macro_C01", ylab = "GPX4") + theme(legend.position = "none");
+PlotTest2 <- ggscatter(Test1, x = "X", y = "Y", color = "Type", palette = TissueColor, add = "reg.line", add.params = list(color = "gray", fill = "lightblue"), size=3.5,
+                       conf.int = TRUE, cor.coef = TRUE, cor.method = "spearman", xlab = "Macro_C01", ylab = "GPX4") + xscale("log10", .format = TRUE) + theme(legend.position = "none");
+PlotTest3 <- ggscatter(Test2, x = "X", y = "Y", color = "Type", palette = TissueColor, add = "reg.line", add.params = list(color = "gray", fill = "lightblue"), size=3.5,
+                       conf.int = TRUE, cor.coef = TRUE, cor.method = "spearman", xlab = "Macro_C01", ylab = "GPX4") + xscale("log10", .format = TRUE) + theme(legend.position = "none");
+pdf("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Lineage_01.pdf", width=15, height=5)
+Combine <- plot_grid(PlotTest1,PlotTest2,PlotTest3,nrow=1,ncol=3); print(Combine);
+dev.off()
+pdf("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Lineage_01.pdf", width=5, height=5)
+Combine <- plot_grid(PlotTest3,nrow=1,ncol=1); print(Combine);
+dev.off()
+##############################################################################################################################################################################
+#Fig E11c
+##############################################################################################################################################################################
+Macro <- c("Macrophages_M0_CIBERSORT","Macrophages_M1_CIBERSORT","Macrophages_M2_CIBERSORT","Monocytic_lineage_MCPcounter","Macrophages_xCell","Macrophages_M1_xCell",
+           "Macrophages_M2_xCell","Macrophages_EPIC","Macrophage_TIMER","Macrophages_M1_quantiseq","Macrophages_M2_quantiseq")
+
+Cohort4_ExpClass <- ExpClass(ClinExpZscore[[4]],SymbolList[[4]],"GPX4"); Cohort4_TmeClass <- TmeClass(ClinExpZscore[[4]],Cohort4_TMEcomb,Macro);
+Cohort4_Class <- OneClass(Cohort4_ExpClass,Cohort4_TmeClass); CliExpList[[4]]$Time <- ceiling(CliExpList[[4]]$Time/30);
+Cohort4_Survival1 <- Survival1(CliExpList[[4]],Cohort4_Class); Cohort4_Survival2 <- Survival2(CliExpList[[4]],Cohort4_Class)
+Cohort4_Survival3 <- Survival3(CliExpList[[4]],Cohort4_Class); Cohort4_Survival4 <- Survival4(CliExpList[[4]],Cohort4_Class);
+Cohort4_Survival5 <- Survival5(CliExpList[[4]],Cohort4_Class); Cohort4_Survival6 <- Survival6(CliExpList[[4]],Cohort4_Class);
+Cohort4_Survival8 <- Survival8(CliExpList[[4]],Cohort4_Class); Cohort4_Survival9 <- Survival9(CliExpList[[4]],Cohort4_Class);
+
+Cohort5_ExpClass <- ExpClass(ClinExpZscore[[5]],SymbolList[[5]],"GPX4"); Cohort5_TmeClass <- TmeClass(ClinExpZscore[[5]],Cohort5_TMEcomb,Macro);
+Cohort5_Class <- OneClass(Cohort5_ExpClass,Cohort5_TmeClass);
+Cohort5_Survival1 <- Survival1(CliExpList[[5]],Cohort5_Class); Cohort5_Survival2 <- Survival2(CliExpList[[5]],Cohort5_Class)
+Cohort5_Survival3 <- Survival3(CliExpList[[5]],Cohort5_Class); Cohort5_Survival4 <- Survival4(CliExpList[[5]],Cohort5_Class);
+Cohort5_Survival5 <- Survival5(CliExpList[[5]],Cohort5_Class); Cohort5_Survival6 <- Survival6(CliExpList[[5]],Cohort5_Class);
+Cohort5_Survival8 <- Survival8(CliExpList[[4]],Cohort4_Class); Cohort5_Survival9 <- Survival9(CliExpList[[4]],Cohort4_Class);
+
+MyColor4 <- c("#e31a1c","#ff7f00","#1f78b4","#33a02c"); MyColor2 <- c("#e31a1c","#33a02c"); #MyColor4 <- pal_npg("nrc", alpha = 0.8)(4);
+pdf("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Lineage_01.pdf", width=6, height=8)
+ggsurvplot(Cohort4_Survival5[[2]][[11]], data = Cohort4_Survival5[[1]][[11]], pval = TRUE, conf.int = TRUE, risk.table = TRUE, risk.table.col = "strata", linetype = "strata", 
+           surv.median.line = "hv", ggtheme = theme_bw(), palette = MyColor2) #c("#fb8072","#8dd3c7")
+dev.off()
+##############################################################################################################################################################################
+Cohort1_ExpClass <- ExpClass(ClinExpZscore[[1]],SymbolList[[1]],"GPX4"); Cohort1_Survival7 <- Survival7(CliExpList[[1]],Cohort1_ExpClass);#Cohort1
+Cohort2_ExpClass <- ExpClass(ClinExpZscore[[2]],SymbolList[[2]],"GPX4"); Cohort2_Survival7 <- Survival7(CliExpList[[2]],Cohort2_ExpClass);#Cohort2
+Cohort3_ExpClass <- ExpClass(ClinExpZscore[[3]],SymbolList[[3]],"GPX4"); Cohort3_Survival7 <- Survival7(CliExpList[[3]],Cohort3_ExpClass);#Cohort3
+Cohort4_ExpClass <- ExpClass(ClinExpZscore[[4]],SymbolList[[4]],"GPX4"); Cohort4_Survival7 <- Survival7(CliExpList[[4]],Cohort4_ExpClass);#Cohort4
+Cohort5_ExpClass <- ExpClass(ClinExpZscore[[5]],SymbolList[[5]],"GPX4"); Cohort5_Survival7 <- Survival7(CliExpList[[5]],Cohort5_ExpClass);#Cohort5
+
+pdf("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Lineage_01.pdf", width=6, height=8)
+ggsurvplot(Cohort1_Survival7[[2]], data = Cohort1_Survival7[[1]], pval = TRUE, conf.int = TRUE, risk.table = TRUE, risk.table.col = "strata", linetype = "strata", 
+           surv.median.line = "hv", ggtheme = theme_bw(), palette = c("#fb8072","#8dd3c7")) #c("#fb8072","#80b1d3","#fdb462","#8dd3c7")
+dev.off()
+##############################################################################################################################################################################
