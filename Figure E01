@@ -1,0 +1,87 @@
+#Object
+##############################################################################################################################################################################
+Original.OView03<- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_OverView03.RDS");
+CD4THluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_CD4THluster01.RDS");
+CD8THluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_CD8THluster01.RDS");
+NHluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_NKHluster03.RDS"); 
+BHluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_IntBHluster04_RMIG.RDS");
+MHluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_MyeloidHluster01.RDS");
+StrHluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_StrHluster01.RDS");
+##############################################################################################################################################################################
+#Function
+##############################################################################################################################################################################
+PaperBox = function(DataFrame, Color, Method, Title)
+{
+  Plot <- ggplot(DataFrame, aes(Class, Value)) + geom_boxplot(aes(color=Class), notch=FALSE, outlier.shape=NA, width=0.5) + geom_jitter(aes(colour = Class), size = 1.5, alpha=0.8, width=0.3) +
+    scale_fill_manual(values=Color) + theme_classic() + stat_compare_means(method = Method) + ggtitle(Title) + # + labs(x=Axis[1], y=Axis[2])
+    theme(axis.text = element_text(size=10,face="plain"), axis.text.x = element_text(angle=45, hjust=1), axis.text.y = element_blank(), #axis.title=element_text(size=14,face="plain",color="black"), 
+          plot.title = element_text(hjust = 0.5, size=8, face="plain"), axis.title = element_blank(), legend.position="none")
+  return(Plot);
+}
+MultiBox = function(DataFrame, GroupColor, NodeColor, LineColor, Title, Method)
+{
+  Plot <- ggplot(DataFrame, aes(TissueType, Value)) + geom_boxplot(aes(color=TissueType), color=GroupColor, notch=FALSE, outlier.shape=NA, width=0.5) + geom_point(aes(colour = TissueLabl), color=NodeColor, size = 1.5, alpha=0.8, width=0.3) +
+    theme_classic() + stat_compare_means(method = Method) + geom_line(aes(group=Patient, colour="#d9d9d9"), color="#d9d9d9", linetype="11") + ggtitle(Title) + # + labs(x=Axis[1], y=Axis[2])
+    theme(axis.text = element_text(size=10,face="plain"), axis.text.y = element_blank(), #axis.title=element_text(size=14,face="plain",color="black"), axis.text.x = element_text(angle=45, hjust=1),
+          plot.title = element_text(hjust = 0.5, size=8, face="plain"), axis.title = element_blank(), legend.position="none")
+  return(Plot);
+}
+##############################################################################################################################################################################
+
+
+#Fig E1a
+##############################################################################################################################################################################
+IMark <- c("PTPRC"); TMark <- c("CD3D","CD3E","CD8A","CD8B"); NMark <- c("NKG7","GNLY","FCGR3A","NCAM1","CD160"); BMark <- c("CD19","MS4A1","CD79B","CD79A","MZB1","XBP1","JCHAIN");
+MastMark <- c("TPSAB1","TPSB2"); MMark <- c("LYZ","S100A8","S100A9","CD14","CD68"); EryMark <- c("HBB","HBA1","HBA2"); PlaMark <- c("PPBP","MPIG6B");
+PMark <- c("MKI67","BIRC5","CDK1"); EndMark <- c("PECAM1","VWF","ENG","MCAM"); FibMark <- c("COL1A2","DCN","COL3A1","COL6A1"); Stomach <- c("MUC5AC","TFF2","TFF1","GKN1","GKN2");
+Hepatocyte <- c("ALB","APOC1","APOA2","ADH1B","FGB"); Enterocyte <- c("FABP1","ALDOB","APOA1","APOA4","ALPI","RBP2","FABP2","CDH17","REG4"); Oncogene <- c("EPCAM","SOX9","MET","EGFR","OLFM4","MSLN","YAP1");
+LineageMarker <- unique(c(IMark,TMark,NMark,BMark,MastMark,MMark,PlaMark,EryMark,FibMark,EndMark,Stomach,Hepatocyte,Enterocyte,Oncogene,PMark));
+
+CellDefination <- as.character(Original.OView03[[]]$CellCategory); names(CellDefination) <- rownames(Original.OView03[[]]);
+TCell <- c("CD4T","CD8T","gdT","MAIT","NKT"); CellDefination[which(is.na(match(CellDefination,TCell))==F)] <- "T";
+MCell <- c("Macro","Mono","cDC","pDC"); CellDefination[which(is.na(match(CellDefination,MCell))==F)] <- "Myeloid";
+PCell <- c("ProlifT","ProlifM","ProlifCAF","ProlifEndo","ProlifEpi"); CellDefination[which(is.na(match(CellDefination,PCell))==F)] <- "Prolif";
+FCell <- c("Pericyte","CAF"); CellDefination[which(is.na(match(CellDefination,FCell))==F)] <- "Fib";
+
+Original.OView03 <- AddMetaData(Original.OView03,CellDefination,col.name="Defination"); CellType <- c("T","NK","B","Plasma","Mast","Myeloid","PLT","RBC","Fib","Endo","Stomach","Liver","Intestine","Malignant","Prolif");
+Idents(Original.OView03) <- "Defination"; PlotObjt <- DotPlot(object = Original.OView03, features = LineageMarker); PlotData <- PlotObjt$data; PlotData$id <- factor(PlotData$id, levels=rev(CellType));
+
+Plot01 <- ggplot(PlotData, aes(x = features.plot,y = id)) + geom_point(aes(fill = avg.exp.scaled,size =pct.exp),color='white',shape=21) +
+                 scale_fill_gradientn(colours=c('#f7fcfd','#f7fcfd','#e0ecf4','#bfd3e6','#9ebcda','#8c96c6','#8c6bb1','#88419d','#810f7c','#4d004b')) +
+                 scale_size(range = c(0,8), limits = c(0,100), breaks = c(0,20,40,60,80,100)) + 
+                 theme(panel.grid.major = element_line(colour = "grey90",size=0.2), panel.grid.minor = element_blank(), axis.title.x=element_blank(), axis.title.y=element_blank(),
+                       panel.background = element_blank(), axis.line = element_line(colour = "black"), axis.text.x=element_text(angle = 45,vjust = 1,hjust = 1),legend.position="right");
+pdf("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Feature_01.pdf", width=16, height=4)
+Combine <- plot_grid(Plot01,nrow=1,ncol=1); print(Combine);
+dev.off()
+##############################################################################################################################################################################
+#Fig E1b
+##############################################################################################################################################################################
+CellOrder <- c("T&NK","Myeloid","B","Plasma","Mast","Proliferating","Stomach","Intestine","Liver","PLT","RBC","Endo","CAF","Malignant");
+CellColor <- c("#fb8072","#fdb462","#66c2a5","#a6d854","#fd8d3c","#8dd3c7","#bebada","#b3cde3","#8da0cb","#e5d8bd","#fed9a6","#decbe4","#e78ac3","#737373");
+Original.OView03 <- AddInfo(Original.OView03); Idents(Original.OView03) <- "CellDetails"; Idents(Original.OView03) <- factor(Idents(Original.OView03), levels=CellOrder); CellList <- list(); ColorList <- list(); 
+
+CellList[[1]] <- rownames(Original.OView03[[]])[which(Original.OView03[[]]$HPinfec=="Positive")]; CellList[[2]] <- rownames(Original.OView03[[]])[which(Original.OView03[[]]$HPinfec=="Negative")];
+CellList[[3]] <- rownames(Original.OView03[[]])[which(Original.OView03[[]]$Lauren=="Diffused")]; CellList[[4]] <- rownames(Original.OView03[[]])[which(Original.OView03[[]]$Lauren=="Intestinal")];
+CellList[[5]] <- rownames(Original.OView03[[]])[which(Original.OView03[[]]$Differn=="Poorly")]; CellList[[6]] <- rownames(Original.OView03[[]])[which(Original.OView03[[]]$Differn=="Moderately")]; 
+names(CellList) <- c("HPpositive","HPnegative","Diffused","Intestinal","Poorly","Moderately")
+for(i in 1:length(CellList)) { Objt <- subset(Original.OView03, cells=CellList[[i]]); CellDetails <- as.character(unique(Objt[[]]$CellDetails)); ColorList[[i]] <- CellColor[which(is.na(match(CellOrder,CellDetails))==F)]; }
+
+Idents(Original.OView03) <- "CellDetails"; Idents(Original.OView03) <- factor(Idents(Original.OView03), levels=CellOrder);
+Single01 <- DimPlot(object=Original.OView03, cols=ColorList[[1 ]], reduction="umap", pt.size=1, label=F, label.size=6, raster=FALSE, cells=CellList[[1 ]]) + xlim(-21,20) + ylim(-15,17.5) + theme_void() +
+                    theme(axis.title.x = element_blank(), axis.title.y = element_blank(), axis.text.x = element_blank(), axis.text.y = element_blank(), legend.position="none");
+Single02 <- DimPlot(object=Original.OView03, cols=ColorList[[2 ]], reduction="umap", pt.size=1, label=F, label.size=6, raster=FALSE, cells=CellList[[2 ]]) + xlim(-21,20) + ylim(-15,17.5) + theme_void() +
+                    theme(axis.title.x = element_blank(), axis.title.y = element_blank(), axis.text.x = element_blank(), axis.text.y = element_blank(), legend.position="none");
+Single03 <- DimPlot(object=Original.OView03, cols=ColorList[[3 ]], reduction="umap", pt.size=1, label=F, label.size=6, raster=FALSE, cells=CellList[[3 ]]) + xlim(-21,20) + ylim(-15,17.5) + theme_void() +
+                    theme(axis.title.x = element_blank(), axis.title.y = element_blank(), axis.text.x = element_blank(), axis.text.y = element_blank(), legend.position="none");
+Single04 <- DimPlot(object=Original.OView03, cols=ColorList[[4 ]], reduction="umap", pt.size=1, label=F, label.size=6, raster=FALSE, cells=CellList[[4 ]]) + xlim(-21,20) + ylim(-15,17.5) + theme_void() +
+                    theme(axis.title.x = element_blank(), axis.title.y = element_blank(), axis.text.x = element_blank(), axis.text.y = element_blank(), legend.position="none");
+Single05 <- DimPlot(object=Original.OView03, cols=ColorList[[5 ]], reduction="umap", pt.size=1, label=F, label.size=6, raster=FALSE, cells=CellList[[5 ]]) + xlim(-21,20) + ylim(-15,17.5) + theme_void() +
+                    theme(axis.title.x = element_blank(), axis.title.y = element_blank(), axis.text.x = element_blank(), axis.text.y = element_blank(), legend.position="none");
+Single06 <- DimPlot(object=Original.OView03, cols=ColorList[[6 ]], reduction="umap", pt.size=1, label=F, label.size=6, raster=FALSE, cells=CellList[[6 ]]) + xlim(-21,20) + ylim(-15,17.5) + theme_void() +
+                    theme(axis.title.x = element_blank(), axis.title.y = element_blank(), axis.text.x = element_blank(), axis.text.y = element_blank(), legend.position="none");
+
+tiff("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Original_01.tif", res=300, width=30000, height=5000)
+Combine <- plot_grid(Single01,Single02,Single03,Single04,Single05,Single06,nrow=1,ncol=6); print(Combine);
+dev.off()
+##############################################################################################################################################################################
