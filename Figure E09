@@ -1,0 +1,354 @@
+#Object
+##############################################################################################################################################################################
+library(ggalluvial); library(GSVA); library(AUCell)
+
+MTgenome <- read.table("/rsrch3/scratch/genomic_med/edai/Project004/Information/MTgenome.txt", header = T, sep='\t'); MTfeature <- as.character(MTgenome$Approved.symbol);
+RPgenome <- read.table("/rsrch3/scratch/genomic_med/edai/Project004/Information/RPgenome.txt", header = T, sep='\t'); RPfeature <- as.character(RPgenome$Approved.symbol);
+RRgenome <- read.table("/rsrch3/scratch/genomic_med/edai/Project004/Information/RRgenome.txt", header = T, sep='\t'); RRfeature <- as.character(RRgenome$Approved.symbol);
+
+Original.OView03 <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_OverView03.RDS"); EpiCluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_EpiCluster04.RDS");
+NormalHluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_HlusterNormal05.RDS"); CancerCluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_ClusterCancer02.RDS");
+CancerByPatient <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_CancerByPatient02.RDS");
+
+IntegrateMarker <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_EpiMarker.RDS"); IntegrateTopMarker <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_EpiTopMarker.RDS")
+load("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_EpiPattern.RDA")
+load("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Figure3_PatternValidation.RDA");
+######################################################################################################################
+#Select Object: Ad.Normal, Pr.Cancer, As.Cancer, Li.Cancer
+EpiCluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_EpiCluster04.RDS"); SelectCell <- list();
+SelectCell[[1]] <- rownames(EpiCluster[[]])[which(EpiCluster[[]]$Tissue=="Ad"&EpiCluster[[]]$CellType!="Hepatocyte")]; SelectCell[[2]] <- rownames(EpiCluster[[]])[which(EpiCluster[[]]$Tissue=="P"&EpiCluster[[]]$CellType=="Malignant")];
+SelectCell[[3]] <- rownames(EpiCluster[[]])[which(EpiCluster[[]]$Tissue=="As"&EpiCluster[[]]$CellType=="Malignant")];  SelectCell[[4]] <- rownames(EpiCluster[[]])[which(EpiCluster[[]]$Tissue=="Li"&EpiCluster[[]]$CellType=="Malignant")];
+names(SelectCell) <- c("Ad.Normal","Pr.Cancer","As.Cancer","Li.Cancer"); SelectObjt <- subset(EpiCluster, cells=c(SelectCell[[1]],SelectCell[[2]],SelectCell[[3]],SelectCell[[4]]));
+
+MetaData <- matrix(NA, nrow=nrow(SelectObjt[[]]),ncol=1); rownames(MetaData) <- rownames(SelectObjt[[]]); for(i in 1:length(SelectCell)) { MetaData[which(is.na(match(rownames(MetaData),SelectCell[[i]]))==F),1] <- names(SelectCell)[i]; }
+SelectObjt <- AddMetaData(SelectObjt,MetaData,col.name=c("CellTissue"));
+##############################################################################################################################################################################
+#Function
+##############################################################################################################################################################################
+SelectTopMarker = function(MarkerList,Type,Number)
+{
+  TopMarker <- character();
+  if(Type=="Two")
+  {
+    DFeature <- MarkerList[order(MarkerList$avg_log2FC,decreasing = T),]; IFeature <- MarkerList[order(MarkerList$avg_log2FC,decreasing = F),]; TopMarker <- c(rownames(head(DFeature,Number)),rownames(head(IFeature,Number)));
+  }
+  else if(Type=="Multi")
+  {
+    TopMarker <- MarkerList %>% group_by(cluster) %>% top_n(n = Number, wt = avg_log2FC);
+  }
+  return(TopMarker);
+}
+##############################################################################################################################################################################
+
+
+#Fig E9a
+##############################################################################################################################################################################
+IntegrateMarker[[1]]$ratio_pct <- IntegrateMarker[[1]]$pct.1/IntegrateMarker[[1]]$pct.2; IntegrateMarker[[2]]$ratio_pct <- IntegrateMarker[[2]]$pct.1/IntegrateMarker[[2]]$pct.2; 
+IntegrateMarker[[3]]$ratio_pct <- IntegrateMarker[[3]]$pct.1/IntegrateMarker[[3]]$pct.2; IntegrateMarker[[4]]$ratio_pct <- IntegrateMarker[[4]]$pct.1/IntegrateMarker[[4]]$pct.2;
+IntegrateMarker[[5]]$ratio_pct <- IntegrateMarker[[5]]$pct.1/IntegrateMarker[[5]]$pct.2; IntegrateMarker[[6]]$ratio_pct <- IntegrateMarker[[6]]$pct.1/IntegrateMarker[[6]]$pct.2; 
+IntegrateMarker[[7]]$ratio_pct <- IntegrateMarker[[7]]$pct.1/IntegrateMarker[[7]]$pct.2;
+
+Threshold0 <- 0.0; Threshold1 <- 1.5; Threshold2 <- 1/Threshold1; Threshold3 <- 1.0; Threshold4 <- 1/Threshold3; Threshold5 <- 0.0001; PatternGene <- list();
+ADvPR <- IntegrateMarker[[2]][intersect(which(IntegrateMarker[[2]]$pct.1>=Threshold0&IntegrateMarker[[2]]$p_val_adj<=Threshold5), which(IntegrateMarker[[2]]$avg_log2FC>=log2(Threshold1)&IntegrateMarker[[2]]$ratio_pct>=(Threshold3))),]
+PRvAD <- IntegrateMarker[[2]][intersect(which(IntegrateMarker[[2]]$pct.2>=Threshold0&IntegrateMarker[[2]]$p_val_adj<=Threshold5), which(IntegrateMarker[[2]]$avg_log2FC<=log2(Threshold2)&IntegrateMarker[[2]]$ratio_pct<=(Threshold4))),]
+ADvAS <- IntegrateMarker[[3]][intersect(which(IntegrateMarker[[3]]$pct.1>=Threshold0&IntegrateMarker[[3]]$p_val_adj<=Threshold5), which(IntegrateMarker[[3]]$avg_log2FC>=log2(Threshold1)&IntegrateMarker[[3]]$ratio_pct>=(Threshold3))),]
+ASvAD <- IntegrateMarker[[3]][intersect(which(IntegrateMarker[[3]]$pct.2>=Threshold0&IntegrateMarker[[3]]$p_val_adj<=Threshold5), which(IntegrateMarker[[3]]$avg_log2FC<=log2(Threshold2)&IntegrateMarker[[3]]$ratio_pct<=(Threshold4))),]
+ADvLI <- IntegrateMarker[[4]][intersect(which(IntegrateMarker[[4]]$pct.1>=Threshold0&IntegrateMarker[[4]]$p_val_adj<=Threshold5), which(IntegrateMarker[[4]]$avg_log2FC>=log2(Threshold1)&IntegrateMarker[[4]]$ratio_pct>=(Threshold3))),]
+LIvAD <- IntegrateMarker[[4]][intersect(which(IntegrateMarker[[4]]$pct.2>=Threshold0&IntegrateMarker[[4]]$p_val_adj<=Threshold5), which(IntegrateMarker[[4]]$avg_log2FC<=log2(Threshold2)&IntegrateMarker[[4]]$ratio_pct<=(Threshold4))),]
+PRvAS <- IntegrateMarker[[5]][intersect(which(IntegrateMarker[[5]]$pct.1>=Threshold0&IntegrateMarker[[5]]$p_val_adj<=Threshold5), which(IntegrateMarker[[5]]$avg_log2FC>=log2(Threshold1)&IntegrateMarker[[5]]$ratio_pct>=(Threshold3))),]
+ASvPR <- IntegrateMarker[[5]][intersect(which(IntegrateMarker[[5]]$pct.2>=Threshold0&IntegrateMarker[[5]]$p_val_adj<=Threshold5), which(IntegrateMarker[[5]]$avg_log2FC<=log2(Threshold2)&IntegrateMarker[[5]]$ratio_pct<=(Threshold4))),]
+PRvLI <- IntegrateMarker[[6]][intersect(which(IntegrateMarker[[6]]$pct.1>=Threshold0&IntegrateMarker[[6]]$p_val_adj<=Threshold5), which(IntegrateMarker[[6]]$avg_log2FC>=log2(Threshold1)&IntegrateMarker[[6]]$ratio_pct>=(Threshold3))),]
+LIvPR <- IntegrateMarker[[6]][intersect(which(IntegrateMarker[[6]]$pct.2>=Threshold0&IntegrateMarker[[6]]$p_val_adj<=Threshold5), which(IntegrateMarker[[6]]$avg_log2FC<=log2(Threshold2)&IntegrateMarker[[6]]$ratio_pct<=(Threshold4))),]
+ASvLI <- IntegrateMarker[[7]][intersect(which(IntegrateMarker[[7]]$pct.1>=Threshold0&IntegrateMarker[[7]]$p_val_adj<=Threshold5), which(IntegrateMarker[[7]]$avg_log2FC>=log2(Threshold1)&IntegrateMarker[[7]]$ratio_pct>=(Threshold3))),]
+LIvAS <- IntegrateMarker[[7]][intersect(which(IntegrateMarker[[7]]$pct.2>=Threshold0&IntegrateMarker[[7]]$p_val_adj<=Threshold5), which(IntegrateMarker[[7]]$avg_log2FC<=log2(Threshold2)&IntegrateMarker[[7]]$ratio_pct<=(Threshold4))),]
+
+#Summary of Common Gene: VENN Plot
+length(setdiff(intersect(rownames(PRvAD),intersect(rownames(ASvAD),rownames(LIvAD))),unique(c(MTfeature,RPfeature,RRfeature))));
+length(setdiff(intersect(rownames(ADvPR),intersect(rownames(ADvAS),rownames(ADvLI))),unique(c(MTfeature,RPfeature,RRfeature))));
+length(setdiff(intersect(rownames(ASvAD),rownames(LIvAD)),unique(c(MTfeature,RPfeature,RRfeature))));
+length(setdiff(intersect(rownames(PRvAD),rownames(LIvAD)),unique(c(MTfeature,RPfeature,RRfeature))));
+length(setdiff(intersect(rownames(PRvAD),rownames(ASvAD)),unique(c(MTfeature,RPfeature,RRfeature))));
+length(setdiff(intersect(rownames(ASvPR),rownames(LIvPR)),unique(c(MTfeature,RPfeature,RRfeature))));
+length(setdiff(intersect(rownames(PRvAS),rownames(PRvLI)),unique(c(MTfeature,RPfeature,RRfeature))));
+##############################################################################################################################################################################
+#Fig E9b
+##############################################################################################################################################################################
+pdf("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Feature_01.pdf", width=10, height=8)
+SelectGene <- c("NME1","PGK1","CD24","SDC1","S100A9","PABPC1","PLP2","CD44");
+Idents(SelectObjt) <- "CellTissue"; Idents(SelectObjt) <- factor(Idents(SelectObjt), levels=c("Ad.Normal","Pr.Cancer","As.Cancer","Li.Cancer"));
+Plot1 <- VlnPlot(SelectObjt, features = SelectGene[1], pt.size = 0, ncol = 1) + NoLegend() +stat_summary(fun = median, colour = "black", shape = 10) + theme(axis.title = element_blank(), legend.position="none");
+Plot2 <- VlnPlot(SelectObjt, features = SelectGene[2], pt.size = 0, ncol = 1) + NoLegend() +stat_summary(fun = median, colour = "black", shape = 10) + theme(axis.title = element_blank(), legend.position="none");
+Plot3 <- VlnPlot(SelectObjt, features = SelectGene[3], pt.size = 0, ncol = 1) + NoLegend() +stat_summary(fun = median, colour = "black", shape = 10) + theme(axis.title = element_blank(), legend.position="none");
+Plot4 <- VlnPlot(SelectObjt, features = SelectGene[4], pt.size = 0, ncol = 1) + NoLegend() +stat_summary(fun = median, colour = "black", shape = 10) + theme(axis.title = element_blank(), legend.position="none");
+Plot5 <- VlnPlot(SelectObjt, features = SelectGene[5], pt.size = 0, ncol = 1) + NoLegend() +stat_summary(fun = median, colour = "black", shape = 10) + theme(axis.title = element_blank(), legend.position="none");
+Plot6 <- VlnPlot(SelectObjt, features = SelectGene[6], pt.size = 0, ncol = 1) + NoLegend() +stat_summary(fun = median, colour = "black", shape = 10) + theme(axis.title = element_blank(), legend.position="none");
+Plot7 <- VlnPlot(SelectObjt, features = SelectGene[7], pt.size = 0, ncol = 1) + NoLegend() +stat_summary(fun = median, colour = "black", shape = 10) + theme(axis.title = element_blank(), legend.position="none");
+Plot8 <- VlnPlot(SelectObjt, features = SelectGene[8], pt.size = 0, ncol = 1) + NoLegend() +stat_summary(fun = median, colour = "black", shape = 10) + theme(axis.title = element_blank(), legend.position="none");
+Combine <- plot_grid(Plot1,Plot2,Plot3,Plot4,Plot5,Plot6,Plot7,Plot8,nrow=2,ncol=4); print(Combine);
+dev.off()
+##############################################################################################################################################################################
+#Fig E9c
+##############################################################################################################################################################################
+#BulkRNA Validation: Locoregional Recurrence & Distant Metastasis: 
+#Function
+Validate1 = function(PatternSymbol, ClinExpr, GeneList, Threshold)
+{
+  ValidateData <- data.frame(Sample=ClinExpr$Sample, Class=ClinExpr$SubClass, Time=ClinExpr$Time, Status=ClinExpr$Status);
+  for(i in 1:length(GeneList))
+  {
+    CohortSymbol <- unique(intersect(GeneList[[i]],PatternSymbol$Symbol)); CohortInfo <- PatternSymbol[match(CohortSymbol,PatternSymbol$Symbol),]; CohortGene <- as.character(unique(CohortInfo$Cohort)); 
+    CohortExpr <- ClinExpr[,c(match(CohortGene,colnames(ClinExpr)))]; MeanExpr <- rowMeans(CohortExpr); Quantile <- quantile(MeanExpr, probs = seq(0, 1, 0.25), na.rm = TRUE); SelectT <- Quantile[Threshold];
+    Group <- matrix(0,nrow=length(MeanExpr),ncol=1); Group[which(MeanExpr>=SelectT),1] <- "High"; Group[which(MeanExpr<SelectT),1] <- "Low"; IndividualData <- data.frame(Group=Group, MeanExpr=MeanExpr); 
+    colnames(IndividualData) <- c(paste(names(GeneList)[i],"Group",sep="_"), paste(names(GeneList)[i],"AveExp",sep="_")); ValidateData <- cbind(ValidateData,IndividualData);
+  }
+  return(ValidateData);
+}
+Validate2 = function(PatternSymbol, ClinExpr, GeneList, Threshold)
+{
+  Score <- list(); Signature <- list(); CohortExpr <- ClinExpr[,c(4:ncol(ClinExpr))];
+  for(i in 1:length(GeneList))
+  {
+    CohortSymbol <- unique(intersect(GeneList[[i]],PatternSymbol$Symbol)); CohortInfo <- PatternSymbol[match(CohortSymbol,PatternSymbol$Symbol),];
+    CohortGene <- as.character(unique(CohortInfo$Cohort)); Signature[[i]] <- CohortGene;
+  }; names(Signature) <- names(GeneList);
+  print("Score1"); Score[[1]] <- t(gsva(t(CohortExpr), Signature, method=c("gsva"))); print("Score2"); Score[[2]] <- t(gsva(t(CohortExpr), Signature, method=c("ssgsea")));
+  print("Score3"); Rank <- AUCell_buildRankings(t(CohortExpr), nCores=12, plotStats=FALSE); Score[[3]] <- t(as.matrix(getAUC(AUCell_calcAUC(Signature, Rank))));
+  colnames(Score[[1]]) <- paste(names(GeneList),"GSVA",sep="_"); colnames(Score[[2]]) <- paste(names(GeneList),"ssGSEA",sep="_"); colnames(Score[[3]]) <- paste(names(GeneList),"AUCell",sep="_");
+  
+  for(i in 1:length(Score))
+  {
+    Group <- matrix(0,nrow=nrow(Score[[i]]),ncol=ncol(Score[[i]])); colnames(Group) <- paste(names(GeneList),"Group",sep="_"); rownames(Group) <- rownames(Score[[i]]);
+    for(j in 1:ncol(Score[[i]]))
+    {
+      Quantile <- quantile(Score[[i]][,j], probs = seq(0, 1, 0.25), na.rm = TRUE); SelectT <- Quantile[Threshold];
+      Group[which(Score[[i]][,j]>=SelectT),j] <- "High"; Group[which(Score[[i]][,j]<SelectT),j] <- "Low";
+    }
+    Score[[i]] <- cbind(Score[[i]],Group);
+  }
+  return(Score);
+}
+SelectSignature = function(PatternSymbol, ClinExpr, GeneList, Threshold)
+{
+  Signature <- list();
+  for(i in 1:length(GeneList))
+  {
+    CohortSymbol <- unique(intersect(GeneList[[i]],PatternSymbol$Symbol)); CohortInfo <- PatternSymbol[match(CohortSymbol,PatternSymbol$Symbol),];
+    CohortGene <- as.character(unique(CohortInfo$Cohort)); Signature[[i]] <- CohortGene;
+  }; names(Signature) <- names(GeneList);
+  return(Signature);
+}
+BarPlot = function(DataFrame,Title)
+{
+  Plot <- ggplot(data=DataFrame,aes(variable,value,fill=Category)) + geom_bar(stat="identity", position="fill",color="black", width=0.8,size=0.25) + ggtitle(Title) + theme_classic() + 
+    #scale_fill_manual(values=Color, name="Category", breaks=Column, labels=Legend) + labs(y=Axis[1], x=Axis[2]) +
+    theme(axis.text = element_text(size=10,face="plain"), axis.text.x = element_text(angle=45, hjust=1), axis.text.y = element_blank(),axis.title = element_blank(), legend.position="right");
+  return(Plot);
+}
+DataSummary = function(Group)
+{
+  SummList <- list();
+  for(i in 2:ncol(Group))
+  {
+    Class <- unique(Group$Class); Summary <- matrix(0,nrow=2,ncol=length(Class)); rownames(Summary) <- c("High","Low"); colnames(Summary) <- Class;
+    for(j in 1:length(Class)) { Summary[1,j] <- length(which(Group[,1]==Class[j]&Group[,i]=="High")); Summary[2,j] <- length(which(Group[,1]==Class[j]&Group[,i]=="Low")); }; SummList[[(i-1)]] <- Summary;
+  }
+  return(SummList);
+}
+ContSummary = function(ValidateProfile,ValidateSigScore)
+{
+  ContSummary <- list(); Group0 <- ValidateProfile[,c(2,grep("_Group",colnames(ValidateProfile)))];
+  Group1 <- as.data.frame(cbind(ValidateProfile[,2], ValidateSigScore[[1]][match(ValidateProfile$Sample, rownames(ValidateSigScore[[1]])),grep("_Group",colnames(ValidateSigScore[[1]]))])); colnames(Group1)[1] <- "Class"
+  Group2 <- as.data.frame(cbind(ValidateProfile[,2], ValidateSigScore[[2]][match(ValidateProfile$Sample, rownames(ValidateSigScore[[2]])),grep("_Group",colnames(ValidateSigScore[[2]]))])); colnames(Group2)[1] <- "Class"
+  Group3 <- as.data.frame(cbind(ValidateProfile[,2], ValidateSigScore[[3]][match(ValidateProfile$Sample, rownames(ValidateSigScore[[3]])),grep("_Group",colnames(ValidateSigScore[[3]]))])); colnames(Group3)[1] <- "Class"
+  ContSummary0 <- DataSummary(Group0); names(ContSummary0) <- names(GeneList); ContSummary1 <- DataSummary(Group1); names(ContSummary1) <- names(GeneList); 
+  ContSummary2 <- DataSummary(Group2); names(ContSummary2) <- names(GeneList); ContSummary3 <- DataSummary(Group3); names(ContSummary3) <- names(GeneList);
+  ContSummary[[1]] <- ContSummary0; ContSummary[[2]] <- ContSummary1; ContSummary[[3]] <- ContSummary2; ContSummary[[4]] <- ContSummary3; return(ContSummary);
+}
+ContTable4 = function(ContSummary1,ContSummary2,ContSummary3)
+{
+  #Table1: NN & LR & DM
+  Contingency1 <- matrix(0,nrow=3,ncol=4); rownames(Contingency1) <- c("High","Low","Sum"); colnames(Contingency1) <- c("NN","LR","DM","Sum");
+  Contingency1[1,1] <- ContSummary1[1,1]; Contingency1[1,2] <- ContSummary1[1,3]; Contingency1[1,3] <- ContSummary1[1,2] + ContSummary1[1,4] + ContSummary1[1,5] + ContSummary1[1,6] + ContSummary1[1,7];
+  Contingency1[2,1] <- ContSummary1[2,1]; Contingency1[2,2] <- ContSummary1[2,3]; Contingency1[2,3] <- ContSummary1[2,2] + ContSummary1[2,4] + ContSummary1[2,5] + ContSummary1[2,6] + ContSummary1[2,7];
+  
+  Contingency1[3,1] <- Contingency1[1,1] + Contingency1[2,1]; Contingency1[3,2] <- Contingency1[1,2] + Contingency1[2,2]; Contingency1[3,3] <- Contingency1[1,3] + Contingency1[2,3];
+  Contingency1[1,4] <- Contingency1[1,1] + Contingency1[1,2] + Contingency1[1,3]; Contingency1[2,4] <- Contingency1[2,1] + Contingency1[2,2] + Contingency1[2,3];
+  
+  #Table2: NN & DM
+  Contingency2 <- matrix(0,nrow=3,ncol=3); rownames(Contingency2) <- c("High","Low","Sum"); colnames(Contingency2) <- c("NN","DM","Sum");
+  Contingency2[1,1] <- ContSummary2[1,1]; Contingency2[1,2] <- ContSummary2[1,2] + ContSummary2[1,3] + ContSummary2[1,4] + ContSummary2[1,5] + ContSummary2[1,6];
+  Contingency2[2,1] <- ContSummary2[2,1]; Contingency2[2,2] <- ContSummary2[2,2] + ContSummary2[2,3] + ContSummary2[2,4] + ContSummary2[2,5] + ContSummary2[2,6]; 
+  
+  Contingency2[3,1] <- Contingency2[1,1] + Contingency2[2,1]; Contingency2[3,2] <- Contingency2[1,2] + Contingency2[2,2];
+  Contingency2[1,3] <- Contingency2[1,1] + Contingency2[1,2]; Contingency2[2,3] <- Contingency2[2,1] + Contingency2[2,2];
+  
+  #Table3: Liver & Lung & Other
+  Contingency3 <- matrix(0,nrow=3,ncol=4); rownames(Contingency3) <- c("High","Low","Sum"); colnames(Contingency3) <- c("Liver","Lung","Other","Sum");
+  Contingency3[1,1] <- ContSummary3[1,1]; Contingency3[1,2] <- ContSummary3[1,3]; Contingency3[1,3] <- ContSummary3[1,2] + ContSummary3[1,4] + ContSummary3[1,5];
+  Contingency3[2,1] <- ContSummary3[2,1]; Contingency3[2,2] <- ContSummary3[2,3]; Contingency3[2,3] <- ContSummary3[2,2] + ContSummary3[2,4] + ContSummary3[2,5];
+  
+  Contingency3[3,1] <- Contingency3[1,1] + Contingency3[2,1]; Contingency3[3,2] <- Contingency3[1,2] + Contingency3[2,2]; Contingency3[3,3] <- Contingency3[1,3] + Contingency3[2,3];
+  Contingency3[1,4] <- Contingency3[1,1] + Contingency3[1,2] + Contingency3[1,3]; Contingency3[2,4] <- Contingency3[2,1] + Contingency3[2,2] + Contingency3[2,3];
+  
+  #Table4: LiAs & Lung & Other
+  Contingency4 <- matrix(0,nrow=3,ncol=4); rownames(Contingency4) <- c("High","Low","Sum"); colnames(Contingency4) <- c("LiAs","Lung","Other","Sum");
+  Contingency4[1,1] <- ContSummary3[1,1] + ContSummary3[1,5]; Contingency4[1,2] <- ContSummary3[1,3]; Contingency4[1,3] <- ContSummary3[1,2] + ContSummary3[1,4];
+  Contingency4[2,1] <- ContSummary3[2,1] + ContSummary3[2,5]; Contingency4[2,2] <- ContSummary3[2,3]; Contingency4[2,3] <- ContSummary3[2,2] + ContSummary3[2,4];
+  
+  Contingency4[3,1] <- Contingency4[1,1] + Contingency4[2,1]; Contingency4[3,2] <- Contingency4[1,2] + Contingency4[2,2]; Contingency4[3,3] <- Contingency4[1,3] + Contingency4[2,3];
+  Contingency4[1,4] <- Contingency4[1,1] + Contingency4[1,2] + Contingency4[1,3]; Contingency4[2,4] <- Contingency4[2,1] + Contingency4[2,2] + Contingency4[2,3];
+  
+  #Table5: LiAs & Others
+  Contingency5 <- matrix(0,nrow=3,ncol=3); rownames(Contingency5) <- c("High","Low","Sum"); colnames(Contingency5) <- c("LiAs","Others","Sum");
+  Contingency5[1,1] <- ContSummary3[1,1] + ContSummary3[1,5]; Contingency5[1,2] <- ContSummary3[1,2] + ContSummary3[1,3] + ContSummary3[1,4];
+  Contingency5[2,1] <- ContSummary3[2,1] + ContSummary3[2,5]; Contingency5[2,2] <- ContSummary3[2,2] + ContSummary3[2,3] + ContSummary3[2,4];
+  
+  Contingency5[3,1] <- Contingency5[1,1] + Contingency5[2,1]; Contingency5[3,2] <- Contingency5[1,2] + Contingency5[2,2];
+  Contingency5[1,3] <- Contingency5[1,1] + Contingency5[1,2]; Contingency5[2,3] <- Contingency5[2,1] + Contingency5[2,2];
+  
+  #Table6: Liver & Others
+  Contingency6 <- matrix(0,nrow=3,ncol=3); rownames(Contingency6) <- c("High","Low","Sum"); colnames(Contingency6) <- c("Liver","Others","Sum");
+  Contingency6[1,1] <- ContSummary3[1,1]; Contingency6[1,2] <- sum(ContSummary3[1,]) - Contingency6[1,1];
+  Contingency6[2,1] <- ContSummary3[2,1]; Contingency6[2,2] <- sum(ContSummary3[2,]) - Contingency6[2,1];
+  
+  Contingency6[3,1] <- Contingency6[1,1] + Contingency6[2,1]; Contingency6[3,2] <- Contingency6[1,2] + Contingency6[2,2];
+  Contingency6[1,3] <- Contingency6[1,1] + Contingency6[1,2]; Contingency6[2,3] <- Contingency6[2,1] + Contingency6[2,2];
+  
+  ContTable <- list(); ContTable[[1]] <- Contingency1; ContTable[[2]] <- Contingency2; ContTable[[3]] <- Contingency3; ContTable[[4]] <- Contingency4; ContTable[[5]] <- Contingency5; ContTable[[6]] <- Contingency6;
+  names(ContTable) <- c("Contingency1","Contingency2","Contingency3","Contingency4","Contingency5","Contingency6"); return(ContTable);
+}
+ContTable2 = function(ContSummary1,ContSummary2,ContSummary3)
+{
+  #Table1: NN & MT
+  Contingency1 <- matrix(0,nrow=3,ncol=3); rownames(Contingency1) <- c("High","Low","Sum"); colnames(Contingency1) <- c("NN","MT","Sum");
+  Contingency1[1,1] <- ContSummary2[1,1]; Contingency1[1,2] <- sum(ContSummary2[1,c(2:ncol(ContSummary2))]);
+  Contingency1[2,1] <- ContSummary2[2,1]; Contingency1[2,2] <- sum(ContSummary2[2,c(2:ncol(ContSummary2))]);
+  
+  Contingency1[3,1] <- Contingency1[1,1] + Contingency1[2,1]; Contingency1[3,2] <- Contingency1[1,2] + Contingency1[2,2];
+  Contingency1[1,3] <- Contingency1[1,1] + Contingency1[1,2]; Contingency1[2,3] <- Contingency1[2,1] + Contingency1[2,2];
+  
+  #Table2: Liver & Ascites & Other
+  Contingency2 <- matrix(0,nrow=3,ncol=4); rownames(Contingency2) <- c("High","Low","Sum"); colnames(Contingency2) <- c("Liver","Ascites","Other","Sum");
+  Contingency2[1,1] <- ContSummary3[1,1]; Contingency2[1,2] <- ContSummary3[1,4]; Contingency2[1,3] <- sum(ContSummary3[1,])-(Contingency2[1,1]+Contingency2[1,2]);
+  Contingency2[2,1] <- ContSummary3[2,1]; Contingency2[2,2] <- ContSummary3[2,4]; Contingency2[2,3] <- sum(ContSummary3[2,])-(Contingency2[2,1]+Contingency2[2,2]);
+  
+  Contingency2[3,1] <- Contingency2[1,1] + Contingency2[2,1]; Contingency2[3,2] <- Contingency2[1,2] + Contingency2[2,2]; Contingency2[3,3] <- Contingency2[1,3] + Contingency2[2,3];
+  Contingency2[1,4] <- Contingency2[1,1] + Contingency2[1,2] + Contingency2[1,3]; Contingency2[2,4] <- Contingency2[2,1] + Contingency2[2,2] + Contingency2[2,3];
+  
+  #Table3: LiAs & Other
+  Contingency3 <- matrix(0,nrow=3,ncol=3); rownames(Contingency3) <- c("High","Low","Sum"); colnames(Contingency3) <- c("LiAs","Other","Sum");
+  Contingency3[1,1] <- ContSummary3[1,1] + ContSummary3[1,4] + ContSummary3[1,6]; Contingency3[1,2] <- sum(ContSummary3[1,])-Contingency3[1,1];
+  Contingency3[2,1] <- ContSummary3[2,1] + ContSummary3[2,4] + ContSummary3[2,6]; Contingency3[2,2] <- sum(ContSummary3[1,])-Contingency3[2,1];
+  
+  Contingency3[3,1] <- Contingency3[1,1] + Contingency3[2,1]; Contingency3[3,2] <- Contingency3[1,2] + Contingency3[2,2];
+  Contingency3[1,3] <- Contingency3[1,1] + Contingency3[1,2]; Contingency3[2,3] <- Contingency3[2,1] + Contingency3[2,2];
+  
+  #Table4: Liver & Others
+  Contingency4 <- matrix(0,nrow=3,ncol=3); rownames(Contingency4) <- c("High","Low","Sum"); colnames(Contingency4) <- c("Liver","Others","Sum");
+  Contingency4[1,1] <- ContSummary3[1,1]; Contingency4[1,2] <- sum(ContSummary3[1,]) - Contingency4[1,1];
+  Contingency4[2,1] <- ContSummary3[2,1]; Contingency4[2,2] <- sum(ContSummary3[2,]) - Contingency4[2,1];
+  
+  Contingency4[3,1] <- Contingency4[1,1] + Contingency4[2,1]; Contingency4[3,2] <- Contingency4[1,2] + Contingency4[2,2];
+  Contingency4[1,3] <- Contingency4[1,1] + Contingency4[1,2]; Contingency4[2,3] <- Contingency4[2,1] + Contingency4[2,2];
+  
+  #Table5: Ascites & Others
+  Contingency5 <- matrix(0,nrow=3,ncol=3); rownames(Contingency5) <- c("High","Low","Sum"); colnames(Contingency5) <- c("Ascites","Others","Sum");
+  Contingency5[1,1] <- ContSummary3[1,4]; Contingency5[1,2] <- sum(ContSummary3[1,]) - Contingency5[1,1];
+  Contingency5[2,1] <- ContSummary3[2,4]; Contingency5[2,2] <- sum(ContSummary3[2,]) - Contingency5[2,1];
+  
+  Contingency5[3,1] <- Contingency5[1,1] + Contingency5[2,1]; Contingency5[3,2] <- Contingency5[1,2] + Contingency5[2,2];
+  Contingency5[1,3] <- Contingency5[1,1] + Contingency5[1,2]; Contingency5[2,3] <- Contingency5[2,1] + Contingency5[2,2];
+  
+  ContTable <- list(); ContTable[[1]] <- Contingency1; ContTable[[2]] <- Contingency2; ContTable[[3]] <- Contingency3; ContTable[[4]] <- Contingency4; ContTable[[5]] <- Contingency5;
+  names(ContTable) <- c("Contingency1","Contingency2","Contingency3","Contingency4","Contingency5"); return(ContTable);
+}
+##############################################################################################################################################################################
+#Cohort2 Profile: SubClass, Sample, Time, Status
+Cohort2.Clinical <- read.table("/rsrch3/scratch/genomic_med/edai/Project004/Information/ValidateCohort/GSE62254_STAD_ClinicalInfo.txt", header = T, sep='\t');
+Cohort2.Clinical <- Cohort2.Clinical[match(rownames(CliExpList[[2]]),Cohort2.Clinical$GEO_Sample),]; Cohort2.Profile <- cbind(Cohort2.Clinical$SubClass,as.data.frame(CliExpList[[2]])); colnames(Cohort2.Profile)[1] <- "SubClass";
+Cohort2.Profile_Sub1 <- Cohort2.Profile[which(is.na(match(Cohort2.Profile$SubClass,c("NN","Ascites","Liver","Liver & Ascites","Peritoneal Seeding","iLN","dLN","Bone","Other")))==F),];
+Cohort2.Profile_Sub2 <- Cohort2.Profile[which(is.na(match(Cohort2.Profile$SubClass,c("Ascites","Liver","Liver & Ascites","Peritoneal Seeding","iLN","dLN","Bone","Other")))==F),];
+Cohort2.CliExpr_Sub1 <- CliExpList[[2]][match(rownames(Cohort2.Profile_Sub1),rownames(CliExpList[[2]])),]; Cohort2.CliExpr_Sub2 <- CliExpList[[2]][match(rownames(Cohort2.Profile_Sub2),rownames(CliExpList[[2]])),];
+
+#Cohort4 Profile: SubClass, Sample, Time, Status
+Cohort4.Clinical <- read.table("/rsrch3/scratch/genomic_med/edai/Project004/Information/ValidateCohort/TCGA_STAD_ClinicalInfo.txt", header = T, sep='\t');
+Cohort4.Barcode <- str_replace_all(as.character(Cohort4.Clinical$Barcode),"-","."); Cohort4.Sample <- character();
+for(i in 1:length(Cohort4.Barcode))
+{
+  if(length(grep(Cohort4.Barcode[i],rownames(CliExpList[[4]])))>0)
+  { Cohort4.Sample <- c(Cohort4.Sample,rownames(CliExpList[[4]])[grep(Cohort4.Barcode[i],rownames(CliExpList[[4]]))]); } else { Cohort4.Sample <- c(Cohort4.Sample, "None"); }
+}; Cohort4.Clinical$Sample <- Cohort4.Sample; SubClass <- Cohort4.Clinical$SubClass[match(CliExpList[[4]][,1],Cohort4.Clinical$Sample)];
+names(SubClass) <- Cohort4.Clinical$Sample[match(CliExpList[[4]][,1],Cohort4.Clinical$Sample)]; Cohort4.Profile <- cbind(as.data.frame(SubClass),as.data.frame(CliExpList[[4]]));
+Cohort4.Profile_Sub1 <- Cohort4.Profile[which(is.na(match(Cohort4.Profile$SubClass,c("NN","DM_Liver","DM_Lung","DM_Other","DM_DLN","DM_PS")))==F),];
+Cohort4.Profile_Sub2 <- Cohort4.Profile[which(is.na(match(Cohort4.Profile$SubClass,c("DM_Liver","DM_Lung","DM_Other","DM_DLN","DM_PS")))==F),];
+Cohort4.CliExpr_Sub1 <- CliExpList[[4]][match(rownames(Cohort4.Profile_Sub1),rownames(CliExpList[[4]])),]; Cohort4.CliExpr_Sub2 <- CliExpList[[4]][match(rownames(Cohort4.Profile_Sub2),rownames(CliExpList[[4]])),];
+
+#Summary for Cohort2
+Validate2.Profile <- Validate1(SymbolList[[2]], Cohort2.Profile, GeneList, 3); Validate2.SigScore <- Validate2(SymbolList[[2]], CliExpList[[2]], GeneList, 3);
+Validate2.Profile_Sub1 <- Validate1(SymbolList[[2]], Cohort2.Profile_Sub1, GeneList, 3); Validate2.SigScore_Sub1 <- Validate2(SymbolList[[2]], Cohort2.CliExpr_Sub1, GeneList, 3);
+Validate2.Profile_Sub2 <- Validate1(SymbolList[[2]], Cohort2.Profile_Sub2, GeneList, 3); Validate2.SigScore_Sub2 <- Validate2(SymbolList[[2]], Cohort2.CliExpr_Sub2, GeneList, 3);
+Cohort2.Fisher <- matrix(0,nrow=0,ncol=9); Cohort2.ContSummary <- ContSummary(Validate2.Profile,Validate2.SigScore);
+Cohort2.ContSummary_Sub1 <- ContSummary(Validate2.Profile_Sub1,Validate2.SigScore_Sub1); Cohort2.ContSummary_Sub2 <- ContSummary(Validate2.Profile_Sub2,Validate2.SigScore_Sub2);
+k <- 1; i <- 1; TableList <- list();
+for(k in 1:5)
+{
+  Summary <- matrix(0,nrow=4,ncol=9); rownames(Summary) <- c("MeanExp","GSVA","ssGSEA","AUCell"); colnames(Summary) <- names(GeneList);
+  for(i in 1:4)
+  {
+    for(j in 1:9)
+    {
+      Cohort2.ContTable <- ContTable2(Cohort2.ContSummary[[i]][[j]],Cohort2.ContSummary_Sub1[[i]][[j]],Cohort2.ContSummary_Sub2[[i]][[j]]); TableList[[j]] <- Cohort2.ContTable[[k]];
+      Input <- as.data.frame(Cohort2.ContTable[[k]][c(1:(nrow(Cohort2.ContTable[[k]])-1)),c(1:(ncol(Cohort2.ContTable[[k]])-1))]); Fisher <- fisher.test(Input); Summary[i,j] <- Fisher$p.value;
+    }
+  }; Cohort2.Fisher <- rbind(Cohort2.Fisher,Summary);
+}
+write.table(Cohort2.Fisher, file="/rsrch3/scratch/genomic_med/edai/Project004/Temporary/MarkList.txt", sep="\t", row.names=T, col.names=T);
+
+#Summary for Cohort4
+Validate4.Profile <- Validate1(SymbolList[[4]], Cohort4.Profile, GeneList, 3); Validate4.SigScore <- Validate2(SymbolList[[4]], CliExpList[[4]], GeneList, 3);
+Validate4.Profile_Sub1 <- Validate1(SymbolList[[4]], Cohort4.Profile_Sub1, GeneList, 3); Validate4.SigScore_Sub1 <- Validate2(SymbolList[[4]], Cohort4.CliExpr_Sub1, GeneList, 3);
+Validate4.Profile_Sub2 <- Validate1(SymbolList[[4]], Cohort4.Profile_Sub2, GeneList, 3); Validate4.SigScore_Sub2 <- Validate2(SymbolList[[4]], Cohort4.CliExpr_Sub2, GeneList, 3);
+Cohort4.Fisher <- matrix(0,nrow=0,ncol=9); Cohort4.ContSummary <- ContSummary(Validate4.Profile,Validate4.SigScore);
+Cohort4.ContSummary_Sub1 <- ContSummary(Validate4.Profile_Sub1,Validate4.SigScore_Sub1); Cohort4.ContSummary_Sub2 <- ContSummary(Validate4.Profile_Sub2,Validate4.SigScore_Sub2);
+TableList <- list(); k<-1; i<-1
+for(k in 1:6)
+{
+  Summary <- matrix(0,nrow=4,ncol=9); rownames(Summary) <- c("MeanExp","GSVA","ssGSEA","AUCell"); colnames(Summary) <- names(GeneList);
+  for(i in 1:4)
+  {
+    for(j in 1:9)
+    {
+      Cohort4.ContTable <- ContTable4(Cohort4.ContSummary[[i]][[j]],Cohort4.ContSummary_Sub1[[i]][[j]],Cohort4.ContSummary_Sub2[[i]][[j]]); TableList[[j]] <- Cohort4.ContTable[[k]];
+      Input <- as.data.frame(Cohort4.ContTable[[k]][c(1:(nrow(Cohort4.ContTable[[k]])-1)),c(1:(ncol(Cohort4.ContTable[[k]])-1))]); Fisher <- fisher.test(Input); Summary[i,j] <- Fisher$p.value;
+    }
+  }; Cohort4.Fisher <- rbind(Cohort4.Fisher,Summary);
+}
+#write.table(Cohort4.Fisher, file="/rsrch3/scratch/genomic_med/edai/Project004/Temporary/MarkList.txt", sep="\t", row.names=T, col.names=T);
+##############################################################################################################################################################################
+#BarPlot
+PlotData1 <- data.frame(Category=c("NN","MT"), High=c(92,49), Low=c(64,77)); DataPlot1 <- melt(PlotData1,id.vars='Category'); PlotObjt1 <- BarPlot(DataPlot1,"P1");
+
+PlotData2 <- data.frame(Category=c("NN","MT"), High=c(69,72), Low=c(87,54)); DataPlot2 <- melt(PlotData2,id.vars='Category'); PlotObjt2 <- BarPlot(DataPlot2,"P4a");
+PlotData3 <- data.frame(Category=c("NN","MT"), High=c(128,39), Low=c(144,23)); DataPlot3 <- melt(PlotData3,id.vars='Category'); PlotObjt3 <- BarPlot(DataPlot3,"P4a");
+
+PlotData4 <- data.frame(Category=c("NN","MT"), High=c(87,54), Low=c(69,72)); DataPlot4 <- melt(PlotData4,id.vars='Category'); PlotObjt4 <- BarPlot(DataPlot4,"P2");
+PlotData5 <- data.frame(Category=c("Li&As","Lung","Other"), High=c(19,1,11), Low=c(9,8,14)); DataPlot5 <- melt(PlotData5,id.vars='Category'); PlotObjt5 <- BarPlot(DataPlot5,"P2");
+
+PlotData6 <- data.frame(Category=c("Li","Other"), High=c(20,43), Low=c(8,55)); DataPlot6 <- melt(PlotData6,id.vars='Category'); PlotObjt6 <- BarPlot(DataPlot6,"P2");
+PlotData7 <- data.frame(Category=c("Li","Other"), High=c(17,14), Low=c(8,23)); DataPlot7 <- melt(PlotData7,id.vars='Category'); PlotObjt7 <- BarPlot(DataPlot7,"P2");
+
+pdf("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Lineage_01.pdf", width=5, height=7)
+Combine <- plot_grid(PlotObjt2,PlotObjt4,PlotObjt6,
+                     PlotObjt3,PlotObjt5,PlotObjt7,PlotObjt1,nrow=3,ncol=3); print(Combine);
+dev.off()
+##############################################################################################################################################################################
+PlotObjt <- list(); for(i in 1:length(PlotList1))
+{
+  Contingency <- ContTable(PlotList1[[i]]); PlotData <- as.data.frame(t(Contingency[[2]])); PlotData$Category <- rownames(PlotData); DataPlot <- melt(PlotData,id.vars='Category');
+  DataPlot$value <- as.numeric(DataPlot$value); DataPlot$Category <- factor(DataPlot$Category, levels = c("Liver","Lung","DLN","Other")); PlotObjt[[i]] <- BarPlot(DataPlot);
+}
+
+pdf("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Lineage_01.pdf", width=4, height=10)
+Combine <- plot_grid(PlotObjt[[1]],PlotObjt[[2]],PlotObjt[[3]],PlotObjt[[4]],PlotObjt[[5]],PlotObjt[[6]],PlotObjt[[7]],PlotObjt[[8]],PlotObjt[[9]],PlotObjt[[10]],nrow=5,ncol=2); print(Combine);
+dev.off()
+##############################################################################################################################################################################
