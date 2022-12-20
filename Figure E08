@@ -1,0 +1,99 @@
+#Object
+##############################################################################################################################################################################
+library('data.table'); library(stats); library(ComplexHeatmap); library(circlize)
+
+Original.OView03<- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_OverView03.RDS");
+EpiCluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_EpiCluster04.RDS");
+NormalHluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_HlusterNormal05.RDS");
+CancerCluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_ClusterCancer02.RDS");
+CancerByPatient <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_CancerByPatient02.RDS"); EpiByPatient <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_EpiSepPtCluster02.RDS");
+##############################################################################################################################################################################
+
+
+#Fig E8a
+##############################################################################################################################################################################
+Order <- c("Pt20_Li","Pt10_Li","Pt17_Li","Pt19_As","Pt21_P","Pt13_As","Pt13_P","Pt01_P","Pt16_P","Pt20_P","Pt23_P","Pt10_P","Pt12_P","Pt17_P","Pt22_As","Pt22_P",
+           "Pt04_As","Pt04_P","Pt09_Li","Pt15_P","Pt14_Li","Pt11_As","Pt12_Li"); Idents(CancerCluster) <- "orig.ident"; Objt <- subset(CancerCluster, idents=Order);
+Patient <- as.character(unique(Objt[[]]$Patient)); CNVdir <- "/rsrch3/scratch/genomic_med/edai/Project004/InferCNV/EpiCell/"; ColName <- character();
+
+for(i in 1:length(Patient))
+{
+  CNVfile <- paste(paste(CNVdir,Patient[i],sep=""),"NEvsCE/infercnv.observations.txt",sep="/"); CNVobjt <- paste(paste(CNVdir,Patient[i],sep=""),"NEvsCE/run.final.infercnv_obj",sep="/");
+  fdat = fread(CNVfile, sep = ' '); dat_obs = data.frame(t(fdat[,-1]),check.names = F); colnames(dat_obs)=fdat$V1; dat_obs = data.frame('barcode'=rownames(dat_obs),dat_obs,check.names = F);
+  ColName <- c(ColName,colnames(dat_obs));
+}
+ColSummary <- as.data.frame(table(ColName)); SelectCol <- as.character(ColSummary$ColName[which(ColSummary$Freq==length(Patient))]);
+CNVprofile <- as.data.frame(matrix(0,nrow=0,ncol=length(SelectCol))); GeneOrder <- as.data.frame(matrix(0,nrow=0,ncol=3));
+for(i in 1:length(Patient))
+{
+  CNVfile <- paste(paste(CNVdir,Patient[i],sep=""),"NEvsCE/infercnv.observations.txt",sep="/"); CNVobjt <- paste(paste(CNVdir,Patient[i],sep=""),"NEvsCE/run.final.infercnv_obj",sep="/");
+  fdat = fread(CNVfile, sep = ' '); dat_obs = data.frame(t(fdat[,-1]),check.names = F); colnames(dat_obs)=fdat$V1; dat_obs = data.frame('barcode'=rownames(dat_obs),dat_obs,check.names = F);
+  Barcode <- as.character(dat_obs$barcode); dat_obs <- dat_obs[,match(SelectCol,colnames(dat_obs))]; infercnv_obj=readRDS(CNVobjt); gene_order=infercnv_obj@gene_order; gene_order$chr=as.character(gene_order$chr); 
+  CNVprofile <- rbind(CNVprofile,dat_obs); GeneOrder <- rbind(GeneOrder,gene_order);
+}
+GeneOrder <- GeneOrder[match(SelectCol,rownames(GeneOrder)),]; Chr <- c("chr1","chr2","chr3","chr4","chr5","chr6","chr7","chr8","chr9","chr10","chr11","chr12","chr13","chr14","chr15","chr16","chr17","chr18","chr19","chr20","chr21","chr22");
+OrderGene <- as.data.frame(matrix(0,nrow=0,ncol=3)); for(i in 1:length(Chr)) { GeneBin <- GeneOrder[which(GeneOrder$chr==Chr[i]),]; OrderGene <- rbind(OrderGene,GeneBin[order(GeneBin$start),]); }
+CNVprofile <- CNVprofile[,match(rownames(OrderGene),colnames(CNVprofile))]; CNVprofile <- CNVprofile[match(rownames(Objt[[]]),rownames(CNVprofile)),];
+CNVprofile$SubClus <- as.character(Objt[[]]$"SubCluster"); CNVprofile$barcode <- rownames(CNVprofile);
+CNVaverage <- CNVprofile%>%select(-barcode)%>%group_by(SubClus)%>%summarize_all(mean, na.rm=TRUE)%>%as.data.frame(check.names=F); rownames(CNVaverage) <- CNVaverage$SubClus; CNVaverage<-CNVaverage[,-1];
+#CNVaverage <- CNVaverage[match(Order,rownames(CNVaverage)),]
+
+anno.col <- OrderGene[,'chr',drop=FALSE]; anno.col$chr<-factor(anno.col$chr,levels=paste0('chr',1:22)); mat_colors <- list(chr = c(rep(c("lightgrey", "darkgrey"), 11))); names(mat_colors$chr) <- unique(anno.col$chr)
+cols <- c("#67001f","#b2182b","#d6604d","#f4a582","#fddbc7","#fddbc7","white", "white","white","#d1e5f0","#92c5de","#4393c3","#2166ac","#053061");colfunc <- colorRampPalette(cols); cnv.cols <- colfunc(40)
+#col_fun = colorRamp2(c(-0.8, 1, 1.2), c("blue", "white", "red"));
+top_ann = HeatmapAnnotation(df=anno.col, which='column', annotation_name_side = "left", col=mat_colors, show_legend = F); #
+
+SubClusOrder <- c("Pt19.C1","Pt19.C2","Pt19.C5","Pt19.C6","Pt19.C7","Pt19.C3","Pt19.C0","Pt19.C4","Pt12.C3","Pt12.C0","Pt12.C1","Pt12.C2","Pt23.C0","Pt23.C1","Pt13.C5","Pt13.C2","Pt13.C3","Pt13.C1","Pt13.C4","Pt13.C0",
+                  "Pt11.C3","Pt11.C6","Pt11.C0","Pt11.C5","Pt11.C7","Pt11.C1","Pt11.C2","Pt11.C4","Pt04.C1","Pt04.C6","Pt04.C2","Pt04.C3","Pt04.C0","Pt04.C4","Pt04.C5","Pt16.All",
+                  "Pt15.C4","Pt15.C1","Pt15.C0","Pt15.C3","Pt15.C2","Pt01.All","Pt22.C5","Pt22.C4","Pt22.C1","Pt22.C0","Pt22.C2","Pt22.C3","Pt22.C6","Pt20.C0","Pt20.C1","Pt10.C0","Pt10.C1","Pt10.C2","Pt10.C3",
+                  "Pt09.C0","Pt09.C2","Pt09.C1","Pt14.C2","Pt14.C0","Pt14.C1","Pt14.C3","Pt17.C2","Pt17.C4","Pt17.C5","Pt17.C0","Pt17.C1","Pt17.C3","Pt21.C0","Pt21.C1");
+CNVaverage <- CNVaverage[match(SubClusOrder,rownames(CNVaverage)),];
+
+pdf("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Lineage_01.pdf",height=12,width=8)
+Heatmap(as.matrix(CNVaverage), name = "inferCNV", col=colorRamp2(c(0.8, 1.0, 1.2), c("#2166ac", "#f7f7f7", "#b2182b")), cluster_rows = F, cluster_columns = F, show_row_names=T, row_names_side = "left", show_column_names = F, show_heatmap_legend = T,
+        #column_names_side = "bottom",
+        top_annotation = top_ann, row_split = factor(rownames(CNVaverage),levels=rownames(CNVaverage)), row_title = NULL, column_split = anno.col$chr, column_title = NULL, row_gap = unit(0, "mm"),
+        column_gap = unit(0, "mm"), border = TRUE, heatmap_legend_param = list(legend_height = unit(4, "cm")))
+dev.off()
+##############################################################################################################################################################################
+#Fig E8b
+##############################################################################################################################################################################
+SigList1 <- list(); SigList1[[1]] <- c("GKN1","GKN2","MUC5AC","TFF1","TFF2"); SigList1[[2]] <- c("MUC6","LTF"); SigList1[[3]] <- c("LIPF","PGC","PGA3","PGA4","PGA5");
+SigList1[[4]] <- c("CBLIF","ATP4A","ATP4B","KCNE2"); SigList1[[5]] <- c("SH2D6","LRMP","TRPM5","ALOX5","HCK","FYB1"); SigList1[[6]] <- c("CHGA","CHGB","NEUROD1","GHRL","PEG10","SNCA","HDC","SST","GAST","ASCL1");
+SigList1[[7]] <- c("TFF3","MUC2","ITLN1","CLCA1","SPINK4","FCGBP","REG4"); SigList1[[8]] <- c("CDH17","FABP1","FABP2","APOA1","APOA4","ALPI","ALDOB","RBP2"); SigList1[[9]] <- c("ALB","APOC1","APOA2","ADH1B","FGB");  
+
+Stomach <- c("KCNE2","TFF2","MUC5AC","TFF1"); Intestine <- c("TFF3","FCGBP","FABP1","FABP2","KRT20","REG4","CDH17","CDX1","CDX2"); Liver <- c("ADH1B","APOA2","APOC1","ALB","FGB");
+Endocrine <- c("SNCA","ASCL1","CHGA","ALOX5"); Tuft <- c("FYB1","LRMP"); Stem <- c("OLFM4","LGR5","SOX2","PROM1","CD44","ALDH1A1");
+OncoGene <- c("CLDN18","CDKN2A","MET","CCND1","FGFR2","ERBB2","AKT1","IL1B","CCND2","CDK6","EGFR","TRIM28","KRAS","SOX9","CEACAM6","CEACAM5","MSLN","YAP1","SPP1","S100A9","MUC16","CD274");
+
+SubClusOrder <- c("Pt19.C1","Pt19.C2","Pt19.C5","Pt19.C6","Pt19.C7","Pt19.C3","Pt19.C0","Pt19.C4",
+                  "Pt12.C3","Pt12.C0","Pt12.C1","Pt12.C2",
+                  "Pt23.C0","Pt23.C1",
+                  "Pt13.C5","Pt13.C2","Pt13.C3","Pt13.C1","Pt13.C4","Pt13.C0",
+                  "Pt11.C3","Pt11.C6","Pt11.C0","Pt11.C5","Pt11.C7","Pt11.C1","Pt11.C2","Pt11.C4",
+                  "Pt04.C1","Pt04.C6","Pt04.C2","Pt04.C3","Pt04.C0","Pt04.C4","Pt04.C5",
+                  "Pt16.All",
+                  "Pt15.C4","Pt15.C1","Pt15.C0","Pt15.C3","Pt15.C2",
+                  "Pt01.All",
+                  "Pt22.C5","Pt22.C4","Pt22.C1","Pt22.C0","Pt22.C2","Pt22.C3","Pt22.C6",
+                  "Pt20.C0","Pt20.C1",
+                  "Pt10.C0","Pt10.C1","Pt10.C2","Pt10.C3",
+                  "Pt09.C0","Pt09.C2","Pt09.C1",
+                  "Pt14.C2","Pt14.C0","Pt14.C1","Pt14.C3",
+                  "Pt17.C2","Pt17.C4","Pt17.C5","Pt17.C0","Pt17.C1","Pt17.C3",
+                  "Pt21.C0","Pt21.C1");
+
+#SubClus.Summary <- as.data.frame(table(CancerCluster[[]]$SubCluster)); SubCluster <- as.character(SubClus.Summary$Var1[which(SubClus.Summary$Freq>=50)]); setdiff(SubCluster,SubClusOrder)
+PlotGene1 <- c(Stomach,Intestine,Liver,Endocrine,Tuft); PlotGene2 <- rev(c(Stem,OncoGene)); Idents(CancerCluster) <- "SubCluster"; SubClusObjt <- subset(CancerCluster, idents=SubClusOrder);
+Idents(SubClusObjt) <- "SubCluster"; SubClusObjt <- NormalizeData(SubClusObjt, normalization.method = "LogNormalize", scale.factor = 10000); SubClusObjt <- ScaleData(SubClusObjt, verbose = FALSE);
+PlotObjt <- DotPlot(object = SubClusObjt, features = OncoGene); PlotData <- PlotObjt$data; PlotData$id <- factor(PlotData$id, levels=rev(SubClusOrder));
+
+Plot01 <- ggplot(PlotData, aes(x = features.plot,y = id)) + geom_point(aes(fill = avg.exp.scaled,size =pct.exp),color='white',shape=21) +
+  scale_fill_gradientn(colours=c('#f7fcfd','#f7fcfd','#e0ecf4','#bfd3e6','#9ebcda','#8c96c6','#8c6bb1','#88419d','#810f7c','#4d004b')) +
+  scale_size(range = c(0,7), limits = c(0,100), breaks = c(0,20,40,60,80,100)) + #coord_flip() +
+  theme(panel.grid.major = element_line(colour = "grey90",size=0.2), panel.grid.minor = element_blank(), axis.title.x=element_blank(), axis.title.y=element_blank(),
+        panel.background = element_blank(), axis.line = element_line(colour = "black"), axis.text.x=element_text(angle = 90,vjust = 1,hjust = 1),legend.position="none");
+pdf("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Feature_01.pdf", width=6, height=15)
+Combine <- plot_grid(Plot01,nrow=1,ncol=1); print(Combine);
+dev.off()
+##############################################################################################################################################################################
