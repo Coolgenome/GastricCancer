@@ -1,0 +1,105 @@
+#Object
+##############################################################################################################################################################################
+Original.List <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_List.RDS"); Original.Merge <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_Merge.RDS");
+Original.OView01<- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_OverView01.RDS"); Original.OView02<- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_OverView02.RDS"); 
+Original.OView03<- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_OverView03.RDS");
+THluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_ATHluster01.RDS"); MHluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_MyeloidHluster01.RDS");
+NHluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_NKHluster03.RDS"); BHluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_IntBHluster04_RMIG.RDS");
+ThrHluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_ThrHluster04.RDS"); EryHluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_EryHluster02.RDS"); 
+EndHluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_EndHluster03.RDS"); FibHluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_FHluster03.RDS"); 
+CancerCluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_HlusterCancer02.RDS"); NormalHluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_HlusterNormal04.RDS");
+ImmHluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_ImmuneHluster01.RDS"); EpiCluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_EpiCluster04.RDS");
+BloHluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_BloHluster01.RDS"); StrHluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_StrHluster01.RDS");
+NormalHluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_HlusterNormal05.RDS"); CancerCluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_ClusterCancer02.RDS");
+##############################################################################################################################################################################
+#Function
+##############################################################################################################################################################################
+CellAnno = function(Object, Ident, Clus, Labl)
+{
+  Idents(Object) <- Ident; CellClus <- as.character(Object[[]][Ident][,1]); names(CellClus) <- rownames(Object[[]]);
+  for(i in 1:length(Clus)) { Cell <- WhichCells(Object,idents=Clus[i]); CellClus[match(Cell,names(CellClus))] <- Labl[i]; }; Object <- AddMetaData(Object,CellClus,col.name="CellType"); return(Object);
+}
+CellMark = function(Object, Labl)
+{
+  MTgenome <- read.table("/rsrch3/scratch/genomic_med/edai/Project004/Information/MTgenome.txt", header = T, sep='\t'); MTfeature <- as.character(MTgenome$Approved.symbol);
+  RPgenome <- read.table("/rsrch3/scratch/genomic_med/edai/Project004/Information/RPgenome.txt", header = T, sep='\t'); RPfeature <- as.character(RPgenome$Approved.symbol);
+  RRgenome <- read.table("/rsrch3/scratch/genomic_med/edai/Project004/Information/RRgenome.txt", header = T, sep='\t'); RRfeature <- as.character(RRgenome$Approved.symbol);
+  
+  Idents(Object) <- "CellType"; Idents(Object) <- factor(Idents(Object), levels=Labl); Marker <- FindAllMarkers(Object, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25);
+  Marker$"pct.1/pct.2" <- Marker$pct.1/Marker$pct.2; Marker <- Marker[which(Marker$p_val_adj<=0.05),]; Marker <- Marker[which(is.na(match(Marker$gene,c(MTfeature,RPfeature,RRfeature)))==T),]; return(Marker);
+}
+CellPlot = function(Objt, Ident, Mark, Clus, Size, Title)
+{
+  Idents(Objt) <- Ident; PlotObjt <- DotPlot(object = Objt, features = Mark); PlotData <- PlotObjt$data; PlotData$id <- factor(PlotData$id, levels=Clus);
+  
+  Plot01 <- ggplot(PlotData, aes(x = features.plot,y = id)) + geom_point(aes(fill = avg.exp.scaled,size =pct.exp),color='white',shape=21) +
+    scale_fill_gradientn(colours=c('#f7fcfd','#f7fcfd','#e0ecf4','#bfd3e6','#9ebcda','#8c96c6','#8c6bb1','#88419d','#810f7c','#4d004b')) +
+    scale_size(range = c(0,7), limits = c(0,100), breaks = c(0,20,40,60,80,100)) + ggtitle(Title) + #coord_flip() +
+    theme(panel.grid.major = element_line(colour = "grey90",size=0.2), panel.grid.minor = element_blank(), axis.title.x=element_blank(), axis.title.y=element_blank(),
+          panel.background = element_blank(), axis.line = element_line(colour = "black"), axis.text.x=element_text(angle = 45,vjust = 1,hjust = 1), legend.position=c("right"));
+  
+  pdf("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Feature_01.pdf", width=Size[1], height=Size[2])
+  Combine <- plot_grid(Plot01,nrow=1,ncol=1); print(Combine);
+  dev.off()
+}
+##############################################################################################################################################################################
+
+
+#Fig E3a
+##############################################################################################################################################################################
+G0 <- c("MS4A1","CD19","BANK1","SELL","CCR7","IL4R","FCER2","TCL1A","BACH2","IFITM1","IFIT3","IFI6","STAT1","OAS1","CD83","CD69","NR4A2","COTL1","CD82","CXCR4","LTB","TNFRSF13B","CD27","CD38","CR2","CD81","CD22",
+        "CD40","JCHAIN","MZB1","SDC1","XBP1","HSPA1B","HSPA1A","TRIB1","ATF3","EGR1","JSRP1","TNFRSF17","MKI67","TUBB","STMN1","TYMS");
+G1 <- c("IL4R","CXCR4","CCR7","TNFRSF13B","CD69","IGHD","IGHM","SDC1","TNFRSF17","CD27","IGHM","IGHG1","MZB1","CD27","IGHM","IGHG1","IGHD","CD22","MME","TNFRSF17","TNFRSF17","CD27","CD38","SDC1","TNFRSF17","CD27",
+        "CD38","CD9","RAG1","RAG2","DNTT","IGLL1","VPREB1","CD34","MME","CD38","RAG1","RAG2","DNTT","IGLL1","VPREB1","CD34","MME","CD38","BCL6","ITGAM","AICDA","XBP1","ID3","IRF4","NFKB1","RELA","A4GALT","CD93","CD40","FCER2","CD24");
+G2 <- c("MS4A1","CD19","BANK1","SELL","IL4R","FCER2","TCL1A","BACH2","CD27","CD38","JCHAIN","MZB1","SDC1","TNFRSF17","IGHM","IGHD","IGHG1","IGHG2","IGHG3","IGHG4","IGHA1","IGHA2","MKI67","TUBB","STMN1","TYMS","BAG3","HSPA6","HSPB1");
+G3 <- c("CD74","HLA-DMA","HLA-DMB","HLA-DOA","HLA-DOB","HLA-DPA1","HLA-DPB1","HLA-DQA1","HLA-DQA2","HLA-DQB1","HLA-DQB2","HLA-DRA","HLA-DRB1","HLA-DRB5","IGHM","IGHD","IGHA1","IGHA2","IGHG1","IGHG2","IGHG3","IGHG4");
+G4 <- c("IL6","IL10","TGFB1","IFNG","GZMB","CD274","HAVCR1","LTA","LTB","EBI3","TNF","TNFRSF10A","CD69","CD83");
+
+G0 <- c("MS4A1","CD19"); G1 <- c("BANK1","TCL1A","IL4R","BACH2","FCER2","SELL","CCR7"); G2 <- c("IFITM1","STAT1","OAS1","IFIT3","IFI6"); G3 <- c("CD69","NR4A2","TNFRSF13B","CD82","CD83"); 
+G4 <- c("CD22","CD40","CD38","CD27","CD81","MME","BCL6","AICDA","NFKB1"); G5 <- c("JCHAIN","MZB1","XBP1","SDC1","TNFRSF17","JSRP1","HSPA1B","HSPA1A","TRIB1","ATF3","EGR1","IRF4","IGHG1","IGHG2","IGHG3","IGHG4");
+G6 <- c("IGHA1","IGHA2","IGLC1","IGLC2","IGLC3","IGHM"); G7 <- c("MKI67","TUBB","STMN1","TYMS");
+
+BClus <- c(0,1,2,3,4,5,6); BLabl <- c("B_c1_Bact","Plasma_c1_Pstr","B_c2_Bn","Plasma_c2_Piga","B_c3_Bifn","Plasmablast","B_c4_Bmem"); BHluster <- CellAnno(BHluster,"seurat_clusters",BClus,BLabl);
+BOrdr <- c("B_c2_Bn","B_c3_Bifn","B_c1_Bact","B_c4_Bmem","Plasma_c1_Pstr","Plasma_c2_Piga","Plasmablast"); CellPlot(BHluster,unique(c(G0,G1,G2,G3,G4,G5,G6,G7)),BOrdr,c(11,5));
+##############################################################################################################################################################################
+#Fig E3b
+##############################################################################################################################################################################
+M0 <- c("FCGR3A","LST1","LILRB2","CDKN1C"); M1 <- c("FCN1","VCAN","CD14","S100A9","S100A8"); M2 <- c("CSF3R","NEAT1","NAMPT","CXCL8","G0S2"); M3 <- c("IL1RN","CCL4","CCL20","SDC2","INHBA");
+M4 <- c("ATF3","HSPA1B","ZNF331","NR4A2","SLC40A1"); M5 <-c("SELENOP"); M6 <- c("PLTP","APOC1","APOE","C1QB","C1QC"); M7 <- c("FABP5","FN1","PHLDA1","CCL2"); M8 <- c("CXCL10","ANKRD22","RSAD2","HERC5");
+M9 <- c("CD1C","FCER1A","HLA-DQA1","CLEC10A"); M10 <- c("LILRA4","GZMB","JCHAIN","ITM2C","CLIC3"); M11 <- c("TPSAB1","TPSB2","KIT","CPA3"); M12 <-c("MKI67","TUBB","TUBA1B");
+PlotGene <- unique(c(M0,M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12));
+
+MLabl <- c("Mono_c1_CD14","Macro_c1_APOE","Mono_c2_CSF3R","Macro_c2_ATF3","Mono_c3_CD16","Macro_c3_INHBA","cDC","Macro_c4_C1QC","Mast","Macro_c5_Mifn","Macro_c6_CCL2","pDC","Prolif_M"); 
+MOrdr <- c("Mono_c3_CD16","Mono_c1_CD14","Mono_c2_CSF3R","Macro_c3_INHBA","Macro_c2_ATF3","Macro_c4_C1QC","Macro_c1_APOE","Macro_c6_CCL2","Macro_c5_Mifn","cDC","pDC","Mast","Prolif_M"); 
+MClus <- c(0,1,2,3,4,5,6,7,8,9,10,11,12); MHluster <- CellAnno(MHluster,"seurat_clusters",MClus,MLabl); CellPlot(MHluster,PlotGene,MOrdr,c(16,6));
+##############################################################################################################################################################################
+#Fig E3c
+##############################################################################################################################################################################
+G1 <- c("CLEC3B","CFD","DPT","CXCL12","PDGFRA","POSTN","CCL2","DCN"); G2 <- c("COL12A1","PDPN","CXCL2","CXCL1","CXCL8","TNC","TGFB1"); G3 <- c("HOPX","FAP","THBS2","COL1A1","COL1A2","TPM1","VIM");
+G4 <- c("IL6","HAS1","SLPI","LRRN4","TMEM151A","PKHD1L1","CXADR","MYRF","DES","SLC9A3R1","CD74","KRT8","LMNA"); G5 <- c("CAV1","MYL9","TAGLN","PDGFRB","MCAM","RGS5","CSPG4","ESAM","ANO1","CNN1","NES");
+G6 <- c("MKI67","TOP2A","BIRC5");
+
+FibClus <- c("Clus01","Clus03","Clus04","Clus05","Clus06","Clus02","Clus07"); FibLabl <- c("CAF_c1_iCAF","CAF_c2_myCAF","CAF_c3_LowExp","CAF_c4_iCAF","CAF_c5_apCAF","Pericyte","CAF_c7_Prolif");
+FibHluster <- CellAnno(FibHluster,"CellClus",FibClus,FibLabl); FibOrdr <- c("CAF_c1_iCAF","CAF_c4_iCAF","CAF_c2_myCAF","CAF_c5_apCAF","Pericyte","CAF_c7_Prolif","CAF_c3_LowExp");
+CellPlot(FibHluster,unique(c(G1,G2,G3,G4,G5,G6)),FibOrdr,c(12,5)); CellPlot(FibHluster,c("IL.iCAF","detox.iCAF","IFN.iCAF","CAF.S1","ecm.myCAF","TGF_.myCAF","wound.myCAF","Normal"),FibOrdr,c(5,3));
+##############################################################################################################################################################################
+#Fig E3d
+##############################################################################################################################################################################
+M.Score <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/MHluster_SigScore1.RDS"); Myeloid.Score <- M.Score[match(rownames(MHluster[[]]),rownames(M.Score)),]; 
+Idents(MHluster) <- "CellCluster"; MHluster <- AddMetaData(MHluster, Myeloid.Score, col.name=colnames(Myeloid.Score)); MClus <- c(0,1,2,3,4,5,6,7,8,9,10,11,12); 
+MLabl <- c("Mono_c1_CD14","Macro_c1_APOE","Mono_c2_CSF3R","Macro_c2_ATF3","Mono_c3_CD16","Macro_c3_INHBA","cDC","Macro_c4_C1QC","Mast","Macro_c5_Mifn","Macro_c6_CCL2","pDC","Prolif_M"); 
+MHluster <- CellAnno(MHluster,"seurat_clusters",MClus,MLabl); MOrdr <- c("Macro_c4_C1QC","Macro_c6_CCL2","Macro_c1_APOE","Macro_c2_ATF3","Macro_c3_INHBA","Macro_c5_Mifn"); 
+Idents(MHluster) <- "CellType"; SubMHluster <- subset(MHluster, idents=MOrdr); CellPlot(SubMHluster,"CellType",c("Macrophage_M1","Angiogenesis","Macrophage_M2","Phagocytosis"),MOrdr,c(5,3),"Macrophages");
+##############################################################################################################################################################################
+#Fig E3e
+##############################################################################################################################################################################
+Idents(FibHluster) <- "CellType"; SubFibHluster <- subset(FibHluster, idents=c("CAF_c1_iCAF","CAF_c2_myCAF","CAF_c3_LowExp","CAF_c4_iCAF","CAF_c5_apCAF","CAF_c7_Prolif"));
+Idents(SubFibHluster) <- "CellType"; SubFibOrdr <- c("CAF_c1_iCAF","CAF_c2_myCAF","CAF_c3_LowExp","CAF_c4_iCAF","CAF_c5_apCAF","CAF_c7_Prolif");
+CellPlot(SubFibHluster,"CellType",c("IL.iCAF","detox.iCAF","IFN.iCAF","CAF.S1","ecm.myCAF","TGF_.myCAF","wound.myCAF","Normal"),SubFibOrdr,c(6,3),"CAFs");
+
+#Clus01:CAF_C01, Clus02:Pericyte_C01, Clus03:CAF_C02, Clus04:CAF_C03, Clus05:CAF_C04, Clus06:CAF_C05, Clus07:ProlifCAF_All
+FibSignature <- read.table("/rsrch3/scratch/genomic_med/edai/Project004/Information/FibSignature.txt", header = T, sep='\t'); SigLabel <- unique(FibSignature$Signature); 
+SigList <- list(); for(i in 1:length(SigLabel)) { SigList[[i]] <- FibSignature$Gene[FibSignature$Signature==SigLabel[i]]; }; names(SigList) <- SigLabel;
+Fib.Expr <- as.matrix(GetAssayData(FibHluster, slot = "data")); Fib.Rank <- AUCell_buildRankings(Fib.Expr, nCores=12, plotStats=FALSE); Fib.Score <- AUCell_calcAUC(SigList, Fib.Rank);
+Fib.Matrix <- t(getAUC(Fib.Score)); FibHluster <- AddMetaData(FibHluster,Fib.Matrix,col.name=colnames(Fib.Matrix));
+##############################################################################################################################################################################
