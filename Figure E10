@@ -1,0 +1,247 @@
+#Object
+##############################################################################################################################################################################
+EpiCluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_EpiCluster04.RDS"); SelectCell <- list();
+load("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Figure3_PatternValidation.RDA")
+Objt <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/Information/scRNACohort/EGAS00001004443.rds");
+load("/rsrch3/scratch/genomic_med/edai/Project004/Information/scRNACohort/EGAS00001004443_AUCell.RDA");
+ProteinExpr <- read.table('/rsrch3/scratch/genomic_med/edai/Project004/Information/ProteinExpr.txt', header = T, sep='\t'); rownames(ProteinExpr) <- ProteinExpr[,1]; ProteinExpr <- ProteinExpr[,-1];
+##############################################################################################################################################################################
+#Function
+##############################################################################################################################################################################
+PaperBox = function(DataFrame, Color, Method, Title)
+{
+  Plot <- ggplot(DataFrame, aes(Class, Value)) + geom_boxplot(aes(color=Class), notch=FALSE, outlier.shape=NA, width=0.5) + geom_jitter(aes(colour = Class), size = 1.5, alpha=0.8, width=0.3) +
+    scale_fill_manual(values=Color) + theme_classic() + stat_compare_means(method = Method) + ggtitle(Title) + # + labs(x=Axis[1], y=Axis[2])
+    theme(axis.text = element_text(size=10,face="plain"), axis.text.x = element_text(angle=45, hjust=1), #axis.text.y = element_blank(), axis.title=element_text(size=14,face="plain",color="black"), 
+          plot.title = element_text(hjust = 0.5, size=8, face="plain"), axis.title = element_blank(), legend.position="none")
+  return(Plot);
+}
+#Single-Gene LogRank Test
+Survival1 = function(ClinExpr,PatternSymbol,Gene)
+{
+  Index <- which(PatternSymbol$Symbol==Gene); CohortGene <- PatternSymbol$Cohort[Index]; if(length(Index)>1) { if(length(unique(CohortGene))>1) { print(c(Index,Gene,CohortGene)); }; CohortGene  <- CohortGene[1]; }
+  Expr <- ClinExpr[,which(colnames(ClinExpr)==CohortGene)]; Med <- median(Expr); Class <- matrix(0,nrow=length(Expr),ncol=1); Class[which(Expr>=Med),1] <- "High"; Class[which(Expr<Med),1] <- "Low"; 
+  SurvData <- data.frame(Sample=ClinExpr$Sample, Time=ClinExpr$Time, Status=ClinExpr$Status, Class=Class); Survfit <- survfit(Surv(Time, Status) ~ Class, data = SurvData); #SurvSig <- surv_pvalue(Survfit, data=SurvData);
+  SurvList <- list(); SurvList[[1]] <- SurvData; SurvList[[2]] <- Survfit; return(SurvList);
+}
+Survival2 = function(ClinExpr, PatternSymbol, Gene)
+{
+  CohortSymbol <- unique(intersect(Gene,PatternSymbol$Symbol)); CohortInfo <- PatternSymbol[match(CohortSymbol,PatternSymbol$Symbol),];
+  CohortGene <- as.character(unique(CohortInfo$Cohort)); CohortExpr <- ClinExpr[,c(1,2,3,match(CohortGene,colnames(ClinExpr)))];
+  Formula <- as.formula(paste('Surv(Time, Status) ~ ', CohortGene, sep="")); Model <- coxph(formula = Formula, data = CohortExpr); return(Model);
+}
+##############################################################################################################################################################################
+
+
+#Fig E10b
+##############################################################################################################################################################################
+load("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Figure3_PatternValidation.RDA")
+PatternGene <- c(GeneList[[1]],GeneList[[2]],GeneList[[3]],GeneList[[4]],GeneList[[5]],GeneList[[6]],GeneList[[7]],GeneList[[8]],GeneList[[9]]);
+Index <- 1; SurvivalSummary <- matrix(0,nrow=length(PatternGene),ncol=28);
+colnames(SurvivalSummary) <- c("Pattern","Gene","C1_HR","C1_SE","C1_COXpval","C1_LRpval","C2_HR","C2_SE","C2_COXpval","C2_LRpval","C3_HR","C3_SE","C3_COXpval","C3_LRpval",
+                               "C4_HR","C4_SE","C4_COXpval","C4_LRpval", "C5_HR","C5_SE","C5_COXpval","C5_LRpval","CoxNum(>1)","CoxNum(<1)","CoxNum","LRNum(>1)","LRNum(<1)","LRNum");
+
+for(i in 1:length(GeneList))
+{
+  for(j in 1:length(GeneList[[i]]))
+  {
+    SurvivalSummary[Index,1] <- names(GeneList)[i]; SurvivalSummary[Index,2] <- GeneList[[i]][j]; print(GeneList[[i]][j]); SurvivalSummary[Index,8] <- 0;
+    for(k in 1:5)
+    {
+      if(length(which(SymbolList[[k]]$Symbol==GeneList[[i]][j])) > 0)
+      {
+        SurvObjt <- Survival1(ClinExpZscore[[k]],SymbolList[[k]],GeneList[[i]][j]); SurvModl <- Survival2(ClinExpZscore[[k]],SymbolList[[k]],GeneList[[i]][j]);
+        LRt_Pval <- surv_pvalue(SurvObjt[[2]],data=SurvObjt[[1]])$pval; Cox_HR <- summary(SurvModl)$coefficients[,2]; Cox_SE <- summary(SurvModl)$coefficients[,3]; Cox_Pval <- summary(SurvModl)$coefficients[,5];
+        SurvivalSummary[Index,(k*4-1)] <- Cox_HR; SurvivalSummary[Index,(k*4+0)] <- Cox_SE; SurvivalSummary[Index,(k*4+1)] <- Cox_Pval; SurvivalSummary[Index,(k*4+2)] <- LRt_Pval;
+        
+        if(is.na(Cox_Pval)==F)
+        { 
+          if(Cox_Pval<=0.05&Cox_HR>1) { SurvivalSummary[Index,23] <- as.numeric(SurvivalSummary[Index,23]) + 1; }; if(Cox_Pval<=0.05&Cox_HR<1) { SurvivalSummary[Index,24] <- as.numeric(SurvivalSummary[Index,24]) + 1; };
+        }
+        if(is.na(LRt_Pval)==F)
+        { 
+          if(LRt_Pval<=0.05&Cox_HR>1) { SurvivalSummary[Index,26] <- as.numeric(SurvivalSummary[Index,26]) + 1; }; if(LRt_Pval<=0.05&Cox_HR<1) { SurvivalSummary[Index,27] <- as.numeric(SurvivalSummary[Index,27]) + 1; };
+        }
+        
+      } else { SurvivalSummary[Index,(k*4+1)] <- 1; }
+    }
+    SurvivalSummary[Index,25] <- as.numeric(SurvivalSummary[Index,23]) + as.numeric(SurvivalSummary[Index,24]); SurvivalSummary[Index,28] <- as.numeric(SurvivalSummary[Index,26]) + as.numeric(SurvivalSummary[Index,27]);
+    Index <- Index + 1;
+  }
+}
+
+C1_FDR <- p.adjust(SurvivalSummary[, 5], method = "fdr", n = nrow(SurvivalSummary)); C2_FDR <- p.adjust(SurvivalSummary[, 9], method = "fdr", n = nrow(SurvivalSummary));
+C3_FDR <- p.adjust(SurvivalSummary[,13], method = "fdr", n = nrow(SurvivalSummary)); C4_FDR <- p.adjust(SurvivalSummary[,17], method = "fdr", n = nrow(SurvivalSummary));
+C5_FDR <- p.adjust(SurvivalSummary[,21], method = "fdr", n = nrow(SurvivalSummary)); PosSigNum <- numeric(); NegSigNum <- numeric();
+
+for(i in 1:nrow(SurvivalSummary))
+{
+  SigNumP <- 0; SigNumN <- 0;
+  if(is.na(C1_FDR[i])==FALSE) { if(C1_FDR[i]<=0.05&SurvivalSummary[i, 3]>1) { SigNumP <- SigNumP + 1; }; if(C1_FDR[i]<=0.05&SurvivalSummary[i, 3]<1) { SigNumN <- SigNumN + 1; }; } 
+  if(is.na(C2_FDR[i])==FALSE) { if(C2_FDR[i]<=0.05&SurvivalSummary[i, 7]>1) { SigNumP <- SigNumP + 1; }; if(C2_FDR[i]<=0.05&SurvivalSummary[i, 7]<1) { SigNumN <- SigNumN + 1; }; }  
+  if(is.na(C3_FDR[i])==FALSE) { if(C3_FDR[i]<=0.05&SurvivalSummary[i,11]>1) { SigNumP <- SigNumP + 1; }; if(C3_FDR[i]<=0.05&SurvivalSummary[i,11]<1) { SigNumN <- SigNumN + 1; }; }  
+  if(is.na(C4_FDR[i])==FALSE) { if(C4_FDR[i]<=0.05&SurvivalSummary[i,15]>1) { SigNumP <- SigNumP + 1; }; if(C4_FDR[i]<=0.05&SurvivalSummary[i,15]<1) { SigNumN <- SigNumN + 1; }; }  
+  if(is.na(C5_FDR[i])==FALSE) { if(C5_FDR[i]<=0.05&SurvivalSummary[i,19]>1) { SigNumP <- SigNumP + 1; }; if(C5_FDR[i]<=0.05&SurvivalSummary[i,19]<1) { SigNumN <- SigNumN + 1; }; }  
+  PosSigNum <- c(PosSigNum,SigNumP); NegSigNum <- c(NegSigNum,SigNumN);
+}; FDRsummary <- data.frame(C1_FDR=C1_FDR,C2_FDR=C2_FDR,C3_FDR=C3_FDR,C4_FDR=C4_FDR,C5_FDR=C5_FDR,PosFDRNum=PosSigNum,NegFDRNum=NegSigNum); ResultSummary <- cbind(as.data.frame(SurvivalSummary),FDRsummary);
+##############################################################################################################################################################################
+Summary <- matrix(0,nrow=length(GeneList),ncol=5); rownames(Summary) <- names(GeneList); colnames(Summary) <- c("Cohort1","Cohort2","Cohort3","Cohort4","Cohort5");
+for(i in 1:length(GeneList))
+{
+  Summary[i,1] <- length(union(which(SurvivalSummary[,1]==names(GeneList)[i]&SurvivalSummary[, 5]<=0.05),which(SurvivalSummary[,1]==names(GeneList)[i]&SurvivalSummary[, 6]<=0.05)))
+  Summary[i,2] <- length(union(which(SurvivalSummary[,1]==names(GeneList)[i]&SurvivalSummary[, 9]<=0.05),which(SurvivalSummary[,1]==names(GeneList)[i]&SurvivalSummary[,10]<=0.05)))
+  Summary[i,3] <- length(union(which(SurvivalSummary[,1]==names(GeneList)[i]&SurvivalSummary[,13]<=0.05),which(SurvivalSummary[,1]==names(GeneList)[i]&SurvivalSummary[,14]<=0.05)))
+  Summary[i,4] <- length(union(which(SurvivalSummary[,1]==names(GeneList)[i]&SurvivalSummary[,17]<=0.05),which(SurvivalSummary[,1]==names(GeneList)[i]&SurvivalSummary[,18]<=0.05)))
+  Summary[i,5] <- length(union(which(SurvivalSummary[,1]==names(GeneList)[i]&SurvivalSummary[,21]<=0.05),which(SurvivalSummary[,1]==names(GeneList)[i]&SurvivalSummary[,22]<=0.05)))
+}
+SurvGene1 <- c("MIA","LGALS2"); SurvGene2 <- c("C19orf53","C1QBP","GPX4","HNRNPC","LGALS1","SERBP1","SET"); SurvGene3a <- c("NME4"); SurvGene3b <- c("LAPTM4A"); SurvGene3c <- c("MLEC");  
+SurvGene4a <- c("SERPINE2","RAI14","NOTCH3","LAMA4","PLAT","FLNA","RBP1","FBXO32","FSCN1","AHNAK2","CTHRC1","DAB2","IGFBP3","OSMR","CRABP2","EMP1","PHLDA1","CDA","BNIP3","IGFBP6");
+SurvGene4b <- c("NAP1L1","DSTN"); SurvGene4c <- c("TIMP1","CLDN7"); SurvGene <- c(SurvGene1,SurvGene2,SurvGene3a,SurvGene3b,SurvGene3c,SurvGene4a,SurvGene4b,SurvGene4c);
+SurvPattern <- c(rep("P1",length(SurvGene1)),rep("P2",length(SurvGene2)),rep("P3a",length(SurvGene3a)),rep("P3b",length(SurvGene3b)),rep("P3c",length(SurvGene3c)),rep("P4a",length(SurvGene4a)),
+                 rep("P4b",length(SurvGene4b)),rep("P4c",length(SurvGene4c))); names(SurvPattern) <- SurvGene;
+SelectSummary <- ResultSummary[match(SurvGene,ResultSummary$Gene),]; PlotData <- matrix(0,nrow=(length(SurvGene)*5),ncol=4); colnames(PlotData) <- c("Gene","Cohort","Sig","HR"); Index <- 1;
+for(i in 1:length(SurvGene))
+{
+  for(j in 1:5)
+  { 
+    PlotData[Index,1] <- SurvGene[i]; PlotData[Index,2] <- paste("Cohort",j,sep="");
+    if(as.numeric(SelectSummary[i,(j*4+2)])<=0.05&as.numeric(SelectSummary[i,(j*4+2)])>0) { PlotData[Index,3] <- (-log10(as.numeric(SelectSummary[i,(j*4+2)]))); PlotData[Index,4] <- SelectSummary[i,(j*4-1)]; }
+    Index <- Index + 1; 
+  }
+}
+
+Break1 <- seq(0,1.0,by=0.1); Break2 <- seq(1.2,2.0,by=0.1); myBreaks <- unique(c(Break1,Break2)); Color1 <- c("#ef3b2c","#f7f7f7"); Color2 <- c("#f7f7f7","#238b45"); 
+myColor <- c(rep(Color2[2],30),colorRampPalette(rev(Color2))(length(Break1)), colorRampPalette(rev(Color1))(length(Break2)),rep(Color1[1],20));
+GeneOrder <- c("SERPINE2","RAI14","NOTCH3","LAMA4","PLAT","FLNA","RBP1","FBXO32","FSCN1","LGALS1","AHNAK2","CTHRC1","DAB2","GPX4","TIMP1","NAP1L1","NME4","SET","MIA","IGFBP3","OSMR","CRABP2","EMP1",
+               "PHLDA1","CDA","BNIP3","C19orf53","LAPTM4A","IGFBP6","DSTN","C1QBP","HNRNPC","SERBP1","LGALS2","CLDN7","MLEC");
+PlotData <- as.data.frame(PlotData); PlotData$Sig <- as.numeric(PlotData$Sig); PlotData$HR <- as.numeric(PlotData$HR); 
+PlotData$Cohort <- factor(PlotData$Cohort, levels=rev(c("Cohort1","Cohort2","Cohort3","Cohort4","Cohort5"))); PlotData$Gene <- factor(PlotData$Gene, levels=GeneOrder); 
+Plot01 <- ggplot(PlotData, aes(x = Gene,y = Cohort)) + geom_point(aes(fill = HR, size = Sig),color="black",shape=21) + scale_fill_gradientn(colours=myColor) +
+  scale_size(range = c(0,10), limits = c(0,5), breaks = c(1,2,3,4,5)) + 
+  theme(panel.grid.major = element_line(colour = "grey90",size=0.2), panel.grid.minor = element_blank(), axis.title.x=element_blank(), axis.title.y=element_blank(),
+        panel.background = element_blank(), axis.line = element_line(colour = "black"), axis.text.x=element_text(angle = 45,vjust = 1,hjust = 1),legend.position="right");
+pdf("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Feature_01.pdf", width=10, height=5.0)
+Combine <- plot_grid(Plot01,nrow=1,ncol=1); print(Combine);
+dev.off()
+##############################################################################################################################################################################
+#Fig E10c
+##############################################################################################################################################################################
+#top panel
+EpiCluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_EpiCluster04.RDS"); SelectCell <- list(); Color <- c("#fdb462","#80b1d3","#bebada","#fb8072")
+SelectCell[[1]] <- rownames(EpiCluster[[]])[which(EpiCluster[[]]$Tissue=="Ad"&EpiCluster[[]]$CellType!="Hepatocyte")]; SelectCell[[2]] <- rownames(EpiCluster[[]])[which(EpiCluster[[]]$Tissue=="P"&EpiCluster[[]]$CellType=="Malignant")];
+SelectCell[[3]] <- rownames(EpiCluster[[]])[which(EpiCluster[[]]$Tissue=="As"&EpiCluster[[]]$CellType=="Malignant")];  SelectCell[[4]] <- rownames(EpiCluster[[]])[which(EpiCluster[[]]$Tissue=="Li"&EpiCluster[[]]$CellType=="Malignant")];
+names(SelectCell) <- c("Ad.Normal","Pr.Cancer","As.Cancer","Li.Cancer"); SelectObjt <- subset(EpiCluster, cells=c(SelectCell[[1]],SelectCell[[2]],SelectCell[[3]],SelectCell[[4]]));
+
+MetaData <- matrix(NA, nrow=nrow(SelectObjt[[]]),ncol=1); rownames(MetaData) <- rownames(SelectObjt[[]]); for(i in 1:length(SelectCell)) { MetaData[which(is.na(match(rownames(MetaData),SelectCell[[i]]))==F),1] <- names(SelectCell)[i]; }
+SelectObjt <- AddMetaData(SelectObjt,MetaData,col.name=c("CellTissue"));
+
+SelectGene <- c("GPX4","C19orf53","DSTN","MLEC","SERBP1","SET","LAPTM4A","HNRNPC","NME4","C1QBP","CLDN7","NAP1L1",
+                "LGALS1","TIMP1","MIA","LGALS2","RAI14",
+                "FSCN1","SERPINE2","NOTCH3","LAMA4","PLAT","FLNA","RBP1","FBXO32","AHNAK2","CTHRC1","DAB2","IGFBP3","OSMR","CRABP2","EMP1","PHLDA1","CDA","BNIP3","IGFBP6");
+Idents(SelectObjt) <- "CellTissue"; Idents(SelectObjt) <- factor(Idents(SelectObjt), levels=c("Ad.Normal","Pr.Cancer","As.Cancer","Li.Cancer")); 
+PlotList <- list(); for(i in 1:length(SelectGene))
+{
+  PlotList[[i]] <- VlnPlot(SelectObjt, features = SelectGene[i], pt.size = 0.0, cols = Color, ncol = 1) + stat_summary(fun = median, colour = "black", shape = 10) +
+    theme(axis.line=element_line(colour="black"), axis.text.x=element_blank(), axis.title.x=element_blank(), axis.title.y=element_blank(), legend.position="none");
+}
+
+pdf("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Feature_01.pdf", width=8, height=5)
+Combine <- plot_grid(PlotList[[1]],PlotList[[2]],PlotList[[3]],PlotList[[4]],PlotList[[5]],PlotList[[6]],PlotList[[7]],PlotList[[8]],PlotList[[9]],PlotList[[10]],
+                     PlotList[[11]],PlotList[[12]],nrow=3,ncol=4); print(Combine);
+dev.off()
+##############################################################################################################################################################################
+#bottom panel
+SelectExpr <- as.matrix(GetAssayData(SelectObjt, slot = "data"))[match(SelectGene,rownames(SelectObjt)),];
+AdCell <- rownames(SelectObjt[[]])[which(SelectObjt[[]]$CellTissue=="Ad.Normal")]; PrCell <- rownames(SelectObjt[[]])[which(SelectObjt[[]]$CellTissue=="Pr.Cancer")];
+AsCell <- rownames(SelectObjt[[]])[which(SelectObjt[[]]$CellTissue=="As.Cancer")]; LiCell <- rownames(SelectObjt[[]])[which(SelectObjt[[]]$CellTissue=="Li.Cancer")];
+
+Summary <- matrix(0,nrow=length(SelectGene),ncol=8); rownames(Summary) <- SelectGene;
+colnames(Summary) <- c("Ad.ExpCount","Ad.ExpFract","Pr.ExpCount","Pr.ExpFract","As.ExpCount","As.ExpFract","Li.ExpCount","Li.ExpFract");
+for(i in 1:nrow(SelectExpr))
+{
+  ExpCell <- colnames(SelectExpr)[which(SelectExpr[i,]>1)];
+  Summary[i,1] <- length(intersect(AdCell,ExpCell)); Summary[i,2] <- Summary[i,1]/9313; 
+  Summary[i,3] <- length(intersect(PrCell,ExpCell)); Summary[i,4] <- Summary[i,3]/5061; 
+  Summary[i,5] <- length(intersect(AsCell,ExpCell)); Summary[i,6] <- Summary[i,5]/6816; 
+  Summary[i,7] <- length(intersect(LiCell,ExpCell)); Summary[i,8] <- Summary[i,7]/2769; 
+}; write.table(Summary, file="/rsrch3/scratch/genomic_med/edai/Project004/Temporary/ResMatrix.csv", sep=",", row.names=T, col.names=T);
+
+SelectGene <- c("GPX4","C19orf53","DSTN","MLEC","SERBP1","SET","LAPTM4A","HNRNPC","NME4","C1QBP","LGALS1","CLDN7","NAP1L1");
+PlotData <- data.frame(Gene=SelectGene,AsExp=Summary[match(SelectGene,rownames(Summary)),6],LiExp=Summary[match(SelectGene,rownames(Summary)),8]);
+PlotData$Gene <- factor(PlotData$Gene, levels = SelectGene);
+PlotObjt01 <- ggplot(data=PlotData,aes(x=Gene,y=AsExp)) + geom_bar(stat = "identity", width = 0.8,colour="black",size=0.25, fill="#FC4E07",alpha=1) +
+                     theme(axis.title=element_text(size=15,face="plain",color="black"),axis.text = element_text(size=12,face="plain",color="black"));
+PlotObjt02 <- ggplot(data=PlotData,aes(x=Gene,y=LiExp)) + geom_bar(stat = "identity", width = 0.8,colour="black",size=0.25, fill="#FC4E07",alpha=1) +
+                     theme(axis.title=element_text(size=15,face="plain",color="black"),axis.text = element_text(size=12,face="plain",color="black"));
+pdf("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Feature_01.pdf", width=8, height=5)
+Combine <- plot_grid(PlotObjt01,PlotObjt02,nrow=2,ncol=1); print(Combine);
+dev.off()
+##############################################################################################################################################################################
+#Fig E10d
+##############################################################################################################################################################################
+Summary <- as.data.frame(table(Objt[[]]$sample)); SelectSample <- as.character(Summary$Var1[which(Summary$Freq>=50)]); Idents(Objt) <- "sample"; 
+SubObjt <- subset(Objt, idents=SelectSample); SelectGene <- c("GPX4","C19orf53","DSTN","MLEC","SERBP1","SET","LAPTM4A","HNRNPC","NME4","C1QBP","NAP1L1","CLDN7"); 
+
+PlotList <- list(); for(i in 1:length(SelectGene))
+{
+  PlotList[[i]] <- VlnPlot(SubObjt, features = SelectGene[i], pt.size = 0.0, ncol = 1) + stat_summary(fun = median, colour = "black", shape = 10) +
+    theme(axis.line=element_line(colour="black"), axis.text.x=element_blank(), axis.title.x=element_blank(),
+          axis.title.y=element_blank(), legend.position="none");
+  
+}
+
+pdf("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Feature_01.pdf", width=15, height=8)
+Combine <- plot_grid(PlotList[[1]],PlotList[[2]],PlotList[[3]],PlotList[[4]],PlotList[[5]],PlotList[[6]],PlotList[[7]],PlotList[[8]],PlotList[[9]],PlotList[[10]],
+                     PlotList[[11]],PlotList[[12]],nrow=3,ncol=4); print(Combine);
+dev.off()
+##############################################################################################################################################################################
+#Fig E10e
+##############################################################################################################################################################################
+ClassT <- c("IPAS0993","IPAS7102","IPAS0996","IPAS0979","IPAS7106","IPAS0994","IPAS0995","IPAS0998","IPAS0997","IPAS7105"); #Tumor-enriched
+ClassI <- c("IPAS7107","IPAS7113","IPAS7114","IPAS0981","IPAS7118"); #Immune-enriched
+SelectProfile <- ProteinExpr[which(rownames(ProteinExpr)=="GPX4"),match(c(ClassT,ClassI),colnames(ProteinExpr))]
+
+SelectGene <- c("GPX4","C19orf53","DSTN","LAPTM4A","NAP1L1","MLEC","SERBP1","SET","HNRNPC","NME4","C1QBP","LGALS1","CLDN7",
+                "TIMP1","MIA","LGALS2","RAI14","FSCN1","SERPINE2","NOTCH3","LAMA4","PLAT","FLNA","RBP1","FBXO32","AHNAK2",
+                "CTHRC1","DAB2","IGFBP3","OSMR","CRABP2","EMP1","PHLDA1","CDA","BNIP3","IGFBP6");
+SelectGene <- intersect(SelectGene,rownames(ProteinExpr)); PlotList <- list(); for(i in 1:length(SelectGene))
+{
+  
+  SelectProfile <- as.numeric(ProteinExpr[which(rownames(ProteinExpr)==SelectGene[i]),match(c(ClassT,ClassI),colnames(ProteinExpr))]);
+  PlotData <- data.frame(Sample=c(ClassT,ClassI), Class=c(rep("ClassT",length(ClassT)),rep("ClassI",length(ClassI))),Value=SelectProfile);
+  
+  PlotData$Class <- factor(PlotData$Class, levels=c("ClassT","ClassI")); PlotList[[i]] <- PaperBox(PlotData, c("#fb8072","#8dd3c7"), "wilcox.test", SelectGene[i]);
+};
+
+pdf("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Lineage_01.pdf",width=8, height=3)
+Combine <- plot_grid(PlotList[[1]],PlotList[[2]],PlotList[[3]],PlotList[[4]],nrow=1,ncol=4); print(Combine);
+dev.off()
+##############################################################################################################################################################################
+#Fig E10f
+##############################################################################################################################################################################
+EpiCluster <- readRDS("/rsrch3/scratch/genomic_med/edai/Project004/DataSpace/Original_EpiCluster04.RDS"); SelectCell <- list();
+SelectCell[[1]] <- rownames(EpiCluster[[]])[which(EpiCluster[[]]$Tissue=="Ad"&EpiCluster[[]]$CellType!="Hepatocyte")]; SelectCell[[2]] <- rownames(EpiCluster[[]])[which(EpiCluster[[]]$Tissue=="P"&EpiCluster[[]]$CellType=="Malignant")];
+SelectCell[[3]] <- rownames(EpiCluster[[]])[which(EpiCluster[[]]$Tissue=="As"&EpiCluster[[]]$CellType=="Malignant")];  SelectCell[[4]] <- rownames(EpiCluster[[]])[which(EpiCluster[[]]$Tissue=="Li"&EpiCluster[[]]$CellType=="Malignant")];
+names(SelectCell) <- c("Ad.Normal","Pr.Cancer","As.Cancer","Li.Cancer"); SelectObjt <- subset(EpiCluster, cells=c(SelectCell[[1]],SelectCell[[2]],SelectCell[[3]],SelectCell[[4]]));
+
+MetaData <- matrix(NA, nrow=nrow(SelectObjt[[]]),ncol=1); rownames(MetaData) <- rownames(SelectObjt[[]]); for(i in 1:length(SelectCell)) { MetaData[which(is.na(match(rownames(MetaData),SelectCell[[i]]))==F),1] <- names(SelectCell)[i]; }
+SelectObjt <- AddMetaData(SelectObjt,MetaData,col.name=c("CellTissue"));
+##############################################################################################################################################################################
+GeneOrder <- c("GPX4","AIFM2","DHODH","ACSL4","SLC7A11","SLC3A2","NFE2L2","TFRC","SLC40A1","FTH1","IREB2","NCOA4","STEAP3","SLC11A2","PROM2","GOT1","GCH1",
+               "ASAH2","SCD","ACSL3","PLA2G6","AHCY","NFS1","FTL");
+PlotList <- list(); Idents(SelectObjt) <- "CellTissue"; 
+for(i in 1:length(GeneOrder))
+{
+  PlotList[[i]] <- VlnPlot(SelectObjt, features = GeneOrder[i], pt.size = 0.0, ncol = 1) + NoLegend() +stat_summary(fun = median, colour = "black", shape = 10);
+}
+pdf("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Feature_01.pdf", width=40, height=10)
+Combine <- plot_grid(PlotList[[1]],PlotList[[2]],PlotList[[3]],PlotList[[4]],PlotList[[5]],PlotList[[6]],PlotList[[7]],
+                     PlotList[[8]],PlotList[[9]],PlotList[[10]],PlotList[[11]],PlotList[[12]],PlotList[[13]],PlotList[[14]],
+                     nrow=2,ncol=7); print(Combine);
+dev.off()
+
+Idents(SelectObjt) <- "CellTissue"; Plot01 <- VlnPlot(SelectObjt, features = "AIFM2", pt.size = 0.0, ncol = 1) + NoLegend() +stat_summary(fun = median, colour = "black", shape = 10);
+pdf("/rsrch3/scratch/genomic_med/edai/Project004/Figure/Feature_01.pdf", width=4, height=4)
+Combine <- plot_grid(Plot01,nrow=1,ncol=1); print(Combine);
+dev.off()
+##############################################################################################################################################################################
